@@ -481,7 +481,7 @@ public class idx {
 		key_cnt--;
 		writePage();
 		
-		if(nNode==top && key_cnt==0)		// top node should not be empty
+		if(nNode==top && key_cnt==0)		// top node should not be empty (otherwise get Fox lags)
 		{
 			for(int w=-1;w!=0 && key_cnt==0;)
 			{
@@ -511,7 +511,7 @@ public class idx {
 	private void append_key()
 	{
 		int i,j,kc,nk;
-		long kNd;
+		long kNd,nwR,nwL;
 		
 		seek(false);		// find nearest
 
@@ -545,24 +545,36 @@ public class idx {
 			}
 		nk = nKey;
 		
-		if(attrib>1)		// this is always LEAF
+		if(attrib>1)		// this is always a LEAF page anyway
 		{
 			// if should divide by split this page
 			if(((key_len+8)*(key_cnt+1))>=480)
 				{							
-				kc = key_cnt>>1;
+				kc = key_cnt>>1;		// middle key position
 				
 				kNd = nNode;	//current node
+				nwR = fileend;
+				nwL = fileend+512;
 
-				if(right_page>0)
+				// adjust pointers to pages
+				
+				if(right_page>0)		// right	
 				{
-					nNode = right_page;
-					goNode();
+					nNode = right_page; goNode();
 					try { fidx.skipBytes(4); } catch (IOException e) { e.printStackTrace(); }
-					writeNumber(0,4,fileend,true);	// left node or -1
-					nNode = kNd;
-					goNode();
+					writeNumber(0,4,nwR,true);	// pointer to left node or -1
+					nNode = kNd; goNode();
 				}
+				
+				if(left_page>0)			// left
+				{
+					nNode = left_page; goNode();
+					try { fidx.skipBytes(8); } catch (IOException e) { e.printStackTrace(); }
+					writeNumber(0,4,nwL,true);	// pointer to right node or -1
+					nNode = kNd; goNode();
+				}
+				
+				// Create a new page for right side above middle key
 				
 				for(i=0; i<key_cnt; i++)
 					{
@@ -571,42 +583,52 @@ public class idx {
 					pgR[i] = pgR[j];	
 					}
 				key_cnt -= kc;
-				nNode = fileend;
-				goNode();
-				
-				left_page = kNd;
+				left_page = nwL;		// pointer to new left part
+				nNode = nwR; goNode();
 				writePage();		// write right half
+				
+				// Create a new page for left side below middle key
 				
 				nNode = kNd;
 				goNode();
 				readPage();
-				for(i=kc; i<key_cnt; i++)
+				for(i=kc, j=key_cnt; i<key_cnt; i++)
 					{
-					j = key_cnt;
 					pgC[i] = pgC[j].clone();
 					pgR[i] = pgR[j];	
 					}
 				key_cnt = kc;
-				right_page = fileend;
-				goNode();
-				writePage();		// write left half
+				right_page = nwR;		// pointer to new right part
+				nNode = nwL;
+				goNode(); writePage();		// write left half
 				
-				if(kc<=nk)
-					{
-					nNode = fileend;
-					goNode(); readPage();
-					nKey=nk-kc;					
-					}
-				else
-					{
-					nNode = kNd;
-					goNode(); readPage();
-					nKey = nk;
-					}
-				
-				fileend+=512;
+				fileend+=1024;		// added 2 new pages
 				try { fidx.seek(8); } catch (IOException e) { e.printStackTrace(); }
 				writeNumber(0,4,fileend, true);
+				
+				// Make current page to index
+
+				nNode = kNd;
+				goNode();
+				readPage();
+				pgR[0] = nwL;	// pgC[0] the same
+				pgC[1] = pgC[kc].clone();
+				pgR[1] = nwR;
+				for(i=2, j=key_cnt; i<key_cnt; i++)
+					{
+					pgC[i] = pgC[j].clone();
+					pgR[i] = pgR[j];	
+					}
+				key_cnt = 2;
+				right_page = -1;
+				left_page = -1;
+				attrib = (top==nNode ? 0 : 1);
+				goNode();
+				writePage();		// write left half
+	
+				nNode = (kc<=nk ? nwR : nwL);
+				goNode(); readPage();
+				nKey = (kc<=nk ? nk-kc : nk);
 				}
 			
 			for(i=key_cnt-1; i>nKey; i--)	// insert one item
