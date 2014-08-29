@@ -98,7 +98,7 @@ WORKING WITH IDX INDEXES (NOT CDX)
 This code is good enough when working without indexes,
  or if You use indexes in read-only mode without replacing/inserting new data.
 Sorry, this is java. Otherwise index algorithms are too complex, so java may corrupt the .idx file.
-Anyway, it is possible to search database by key and scan some records.
+Anyway, this code is good to search database by key and scan some records.
 
 Functions similar to FoxPro commands:
 

@@ -481,7 +481,7 @@ public class idx {
 		key_cnt--;
 		writePage();
 		
-		if(nNode==top && key_cnt==0)		// top node should not be empty (otherwise get Fox lags)
+		if(nNode==top && key_cnt==0)		// top node should not be empty
 		{
 			for(int w=-1;w!=0 && key_cnt==0;)
 			{
@@ -511,7 +511,7 @@ public class idx {
 	private void append_key()
 	{
 		int i,j,kc,nk;
-		long kNd,nwR,nwL;
+		long kNd;
 		
 		seek(false);		// find nearest
 
@@ -545,16 +545,27 @@ public class idx {
 			}
 		nk = nKey;
 		
-		if(attrib>1)		// this is always a LEAF page anyway
+		if(attrib>1)		// this is always LEAF
 		{
 			// if should divide by split this page
 			if(((key_len+8)*(key_cnt+1))>=480)
 				{							
-				kc = key_cnt>>1;		// middle key position
+				kc = key_cnt>>1;
 				
 				kNd = nNode;	//current node
-				nwR = fileend;
-				nwL = fileend+512;
+				
+				// When modifying data, index sometimes result to 0-data page that should be removed.
+				// Java makes simply key count to 0, that is incorrect for FoxPro.
+				// But, proper index for fast searching should be a binary tree with index pages inside.
+				// Set to true when deciding not to SEEK data in FoxPro later.
+				boolean INDEX_PAGES_INSIDE_IDX = false;
+				
+				if(INDEX_PAGES_INSIDE_IDX)
+				{
+					// This is better for binary search, but Fox sometimes can't find
+					
+				long nwR = fileend;
+				long nwL = fileend+512;
 
 				// adjust pointers to pages
 				
@@ -625,12 +636,60 @@ public class idx {
 				attrib = (top==nNode ? 0 : 1);
 				goNode();
 				writePage();		// write left half
-	
+				
 				nNode = (kc<=nk ? nwR : nwL);
 				goNode(); readPage();
 				nKey = (kc<=nk ? nk-kc : nk);
+				
 				}
-			
+				else	//INDEX_PAGES_INSIDE_IDX == false
+				{
+						// Don't use index pages at all
+				if(right_page>0)
+				{
+					nNode = right_page; goNode();
+					try { fidx.skipBytes(4); } catch (IOException e) { e.printStackTrace(); }
+					writeNumber(0,4,fileend,true);	// left node or -1
+					nNode = kNd; goNode();
+				}
+				
+				for(i=0; i<key_cnt; i++)
+					{
+					j = (i<=kc ? i+kc : key_cnt);
+					pgC[i] = pgC[j].clone();
+					pgR[i] = pgR[j];	
+					}
+				key_cnt -= kc;
+				nNode = fileend;
+				goNode();
+				
+				left_page = kNd;
+				writePage();		// write right half
+				
+				nNode = kNd;
+				goNode();
+				readPage();
+				for(i=kc, j = key_cnt; i<key_cnt; i++)
+					{
+					pgC[i] = pgC[j].clone();
+					pgR[i] = pgR[j];	
+					}
+				key_cnt = kc;
+				right_page = fileend;
+				goNode();
+				writePage();		// write left half
+				
+				nNode = (kc<=nk ? fileend : kNd);
+				goNode(); readPage();
+				nKey = (kc<=nk ? nk-kc : nk);
+				
+				fileend+=512;
+				try { fidx.seek(8); } catch (IOException e) { e.printStackTrace(); }
+				writeNumber(0,4,fileend, true);
+				}
+
+				}
+		
 			for(i=key_cnt-1; i>nKey; i--)	// insert one item
 				{
 				pgC[i+1] = pgC[i].clone();
