@@ -622,13 +622,11 @@ public class idx {
 				nNode = kNd;
 				goNode();
 				readPage();
-				pgR[0] = nwL;	// pgC[0] the same
-				pgC[1] = pgC[kc].clone();
-				pgR[1] = nwR;
-				for(i=2, j=key_cnt; i<key_cnt; i++)
+				for(i=0; i<key_cnt; i++)
 					{
+					j = (i==0 ? kc-1 : (i==1 ? key_cnt-1 : key_cnt));
 					pgC[i] = pgC[j].clone();
-					pgR[i] = pgR[j];	
+					pgR[i] = (i==0 ? nwL : (i==1 ? nwR : pgR[j]));	
 					}
 				key_cnt = 2;
 				right_page = -1;
@@ -686,6 +684,7 @@ public class idx {
 				fileend+=512;
 				try { fidx.seek(8); } catch (IOException e) { e.printStackTrace(); }
 				writeNumber(0,4,fileend, true);
+				
 				}
 
 				}
