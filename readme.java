@@ -7,6 +7,8 @@ README for FoxDbf java source
  *   
  *   
 FOXPRO databases in java. Supports all basic field types: C,N,F,D,L,I,B,M,G,T,Y.
+Partly supports IDX,CDX index, bugs inside. Writing .idx on Your risk, really corrupts index files.
+Set READ_ONLY to be safe not to lose data/indexes when only data reading needed.
 
 db = new base();
 db.Field[x] contain structures of fields
@@ -53,6 +55,7 @@ db.use();
 
 Sample2: to scan database
 
+db.READ_ONLY = true;		// do not modify
 db.use("SAMPLE1.DBF");
 while(!db.eof)
 	{
@@ -65,6 +68,7 @@ while(!db.eof)
 	db.skip(1);
 	}
 db.use();
+db.READ_ONLY = false;		// writing enabled
 
 Sample3: DOS table
 
@@ -93,28 +97,43 @@ db.writeBinaryToFile( "profile2.jpg", bPicArray2 );
 db.use();
 
 
-WORKING WITH IDX INDEXES (NOT CDX)
+WORKING WITH INDEXES
 
 This code is good enough when working without indexes,
- or if You use indexes in read-only mode without replacing/inserting new data.
-Sorry, this is java. Otherwise index algorithms are too complex, so java may corrupt the .idx file.
-Anyway, this code is good to search database by key and scan some records.
+ or if You use indexes without replacing/inserting new data.
+Really really, do not take it as a database engine.
+This is java, indexing algorithms are too complex and poorly described,
+so this simplified java may corrupt the index files.
+
+Anyway, this code is good to search in ordered database by key and scan records.
+If writing in indexes required then
+ consider using original FoxPro process in background
+ or try using harbour project http://harbour-project.org/
 
 Functions similar to FoxPro commands:
 
+IDX file:
 set_order_to_idx(< .idx file name>)	- sets index file, similar SET INDEX TO
 create_idx(< .idx file name>, <index expression>) - creates empty index file (no FOR, UNIQUE)
-SEEK() - does searching from data in memory variables Field[x]
+Only one .idx file can be opened at a time, no additives.
+Order is ascending always, then scan backwards from the bottom. 
+
+CDX file (read only):
+set_cdx_order( <tag name> ) - sets index of opened .cdx file
+READ_ONLY is set automatically if .cdx file exists.
+There is no java code for modifying cdx-indexed database.
+
+SEEK() - does searching according to data in memory variables Field[x]
 
 The PREPARE_KEY_FROM_DATA() procedure prepares searchKey according to data and searching expression
 (if key is a field value, it converts automatically,
  otherwise write java code there to prepare user defined keys as DTOS(data)+.. or SYS(15,data..) ,
  this is not original FoxPro)
 
-Sample1: create and write indexed database (prepare for lags)
+Index sample1: create and write indexed database (prepare for lags)
 
 db.create("/I.DBF", "Numb N(10)");
-db.create_idx("/I.IDX","Numb");	// INDEX ON Numb
+db.create_idx("/I.IDX","Numb");	// INDEX ON Numb without re-indexing records
 for(int k=0;k<100;k++)		// append 100 indexed records
 	{
 	db.Field[0].setByLong(k);
@@ -132,7 +151,7 @@ for(int k=99;k>=0;k--)		// find them all by key and replace with (5000-value)
 	else
 		{
 	 	System.out.print("Not found?! Should be.\n");
-		// db.order.sRecno contains nearest record, so go to this and skip
+		// db.Idx.sRecno contains nearest record, so go to this and skip
 	 	}
 	}
 
@@ -145,11 +164,11 @@ for(int k=4901;k<=5000;k++)		// find new values to verify index
 	}
 db.use();
 
-Sample2: use database for scanning by using index
+Index sample2: use database for scanning by using .idx index
 
+db.READ_ONLY = true;			// to be sure for reading only
 db.use("/I.DBF");
 db.set_order_to_idx("/I.IDX");
-
 db.go_top();					// scan them sorted all and print values and record numbers
 while(!db.eof)					// should be numbers in descending order
 	{
@@ -158,10 +177,29 @@ while(!db.eof)					// should be numbers in descending order
 	db.skip(1);
 	}
 db.use();
+db.READ_ONLY = true;			// set writing mode on
+
 
 // Verify in FoxPro by commands
 //  USE C:\I
 //  SET INDEX TO C:\I.IDX
 //  BROW
+
+Index sample3: use database for scanning by using .cdx index
+ Prints all "Bob" records
+
+db.use("/MyBASE.DBF");	// this opens also MyBASE.CDX and sets read-only mode
+db.set_cdx_order("name");
+
+db.Field[db.FieldI("Name")].setByString("Bob");
+db.SEEK();
+while(!db.eof)					// should be numbers in descending order
+	{
+	String fName = db.Field[ db.FieldI("FullName") ].stringValue();
+	if(!fName.startsWith("Bob")) break;
+	System.out.print( "Full name is " + fName + "\n");
+	db.skip(1);
+	}
+db.use();
 
  */

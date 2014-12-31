@@ -14,25 +14,29 @@ public class idx {
 	public byte flags;				// some flag-bits
 	public boolean UNIQUE;			// is unique
 	public boolean FOR;				// is for clause
+	public boolean DESCENDING;		// is descending order
 	public byte signature;			// file signature
 	String keyString;				// index expression
 	String forString;				// for expression
+	public long version;			// need for cdx only
 	
 	// working on PAGE
 	private int attrib;				// attribute of page
 	//0 - top, 1 - index, 2 - page, 3 - the last page
-	boolean LEAF;
+	private boolean LEAF;
 	private int key_cnt;			// count of keys in this page
 	private long left_page;			// left page pointer or -1
 	private long right_page;		// right page pointer or -1
 	
-	private byte[][] pgC = new byte[100][100];	// max.100 keys with 100 chars
-	private long[] pgR = new long[100];
+	private byte[][] pgC;			// keys in page
+	private long[] pgR;				// record numbers/nodes in page
 	
 	private long nNode;				// current page pointer
 	private int nKey;				// current key pointer
 	
-	byte[] searchKey;				// bytes to search
+	public byte[] searchKey;		// bytes to search
+	public char sType;				// data type to search
+									// "C" or not, for CDX encoding only
 	
 	public boolean found;			// found() on seek
 	public long sRecno;				// last record pointer found
@@ -92,16 +96,28 @@ public class idx {
 
 	public void prepareSeekByReadyKey( long b ) { ssByBits(b,8); }
 	
+	private int read1byte()
+	{
+		int b = 0;
+		try { b = fidx.readUnsignedByte(); }
+		catch (IOException e) { e.printStackTrace(); }
+		return b;
+	}
+	
 	private long readNumber ( int side, int l, boolean FF )
 	{
 		long r = 0, b = 1;
 		int q=0;
-		if(side>0 && l>1) b<<=(8*(l-1));
-		for(;l>0;l--)
+		byte[] g = new byte[l];
+		try { fidx.read(g); }
+		catch (IOException e) { e.printStackTrace(); }
+		
+		if(side>0 && l>1) b<<=((l-1)<<3);
+		for(int i=0;i<l;i++)
 			{
-			try { q = fidx.readUnsignedByte(); } catch (IOException e) { e.printStackTrace(); }
+			q = g[i]; if(q<0) q+=0x100;
 			if(q!=0xff) FF=false;
-			r+= b*q;
+			r|= b*q;
 			if(side>0) b>>=8; else b<<=8;
 			}
 		return (FF ? -1 : r );
@@ -110,51 +126,64 @@ public class idx {
 	private void writeNumber ( int side, int ln, long numb, boolean FF )
 	{
 		long r = numb;
-		for(int l=ln;l>0;l--)
+		byte[] g = new byte[ln];
+		for(int i=0, l=ln;l>0;l--)
 			{
-			if(side>0) r=(l==1? numb : numb>>(8*(l-1)) );
+			if(side>0) r=(l==1? numb : numb>>((l-1)<<3) );
 			int b = (int)((FF && numb==-1) ? 0xff : (r & 0xff));
-			try { fidx.writeByte(b); } catch (IOException e) { e.printStackTrace(); }
+			g[i++]=(byte)b;
 			if(side==0) r>>=8;
 			}
+		try { fidx.write(g); }
+		catch (IOException e) { e.printStackTrace(); }		
 	}
 	
-	private String readChars ( long l )
+	private String readChars ( int ln )
 	{
+		byte[] b = new byte[ln];
+		try { fidx.read(b); } catch (IOException e) { e.printStackTrace(); }
 		String s = "";
-		for(;l>0;l--)
-			{
-			try {
-				byte c = (byte) fidx.readUnsignedByte(); s+=(char)c;
-				} catch (IOException e) { e.printStackTrace(); }
-			}
+		for(int i=0;i<ln;i++) s+=(char)b[i];
 		return s;
 	}
 	
-	private String writeChars ( int ln, String s )
+	private void writeChars0 ( int ln, String sc )
 	{
-		for(int l=0;l<ln;l++)
+		int l = sc.length();
+		int ml = Math.min(ln,l);
+		try { fidx.writeBytes( (l==ml ? sc : sc.substring(0,ml)) ); }
+		catch (IOException e) { e.printStackTrace(); }
+		if(ln>l)
 			{
-			try { fidx.writeByte( s.length()>l ? s.charAt(l) : 0 ); } catch (IOException e) { e.printStackTrace(); }
+			try { fidx.write(new byte[ln-l]); }
+			catch (IOException e) { e.printStackTrace(); }
 			}
-		return s;
 	}
 	
 	public void read_header()
 	{
+		prepArrs();
+		
 		try { fidx.seek(0); } catch (IOException e) { e.printStackTrace(); }
 		top = readNumber(0,4,true);
 		free = readNumber(0,4,true);
 		fileend = readNumber(0,4,false);
 		key_len = (int)readNumber(0,2,false);
-		try { flags = (byte) fidx.readUnsignedByte(); }
-		catch (IOException e) { e.printStackTrace(); }
+		flags = (byte) read1byte();
 		UNIQUE = ((flags & 1 )>0);
 		FOR = ((flags & 8 )>0);
-		try { signature = (byte) fidx.readUnsignedByte(); }
-		catch (IOException e) { e.printStackTrace(); }
+		signature = (byte) read1byte();
 		keyString = readChars(220).replace("\0", " ").trim();
-		forString = readChars(220).replace("\0", " ").trim();
+		forString = readChars(220).replace("\0", " ").trim();	
+	}
+	
+	// prepare buffer 100 keys 100char long (increase if need)
+	private void prepArrs()
+	{
+		int key_cnt = 100;
+		int key_Clen = 100;
+		pgC = new byte[key_cnt][key_Clen];
+		pgR = new long[key_cnt];
 	}
 	
 	private void readPage()		// reads page information
@@ -167,9 +196,8 @@ public class idx {
 		for(int i=0;i<key_cnt;i++)
 			{
 			// read keys
-			for(int k=0; k<key_len; k++ )
-					try { pgC[i][k] = (byte) fidx.readUnsignedByte(); }
-					catch (IOException e) { e.printStackTrace(); }
+			try { fidx.read( pgC[i], 0, key_len); }
+			catch (IOException e) { e.printStackTrace(); }
 
 			pgR[i] = readNumber(1,4,false);		// read record numbers and pointers
 			}
@@ -185,13 +213,12 @@ public class idx {
 		for(int i=0;i<key_cnt;i++)
 			{
 			// write keys
-			for(int k=0; k<key_len; k++ )
-					try { fidx.writeByte(pgC[i][k]); }
-					catch (IOException e) { e.printStackTrace(); }
+			try { fidx.write( pgC[i], 0, key_len); }
+			catch (IOException e) { e.printStackTrace(); }
 
 			writeNumber(1,4,pgR[i],false);
 			}
-		writeChars(500-(key_cnt*(key_len+4)),"");
+		writeChars0(500-(key_cnt*(key_len+4)),"");
 	}
 		
 	public void goNode()		// goes to the node page
@@ -205,7 +232,7 @@ public class idx {
 		for(int n=0; r==0 && n<searchKey.length; n++ )
 			{
 			int a = pgC[i][n], b = searchKey[n];
-			if(a<0) a+=256; if(b<0) b+=256;		// to unsigned
+			if(a<0) a+=0x100; if(b<0) b+=0x100;		// to unsigned
 			if(a<b) r=-1; else if(a>b) r=1;
 			}
 		return r;
@@ -399,7 +426,7 @@ public class idx {
 			}
 	}
 
-	// goes bottom in index
+	// skips n-records in index
 	public void skip(long n)
 	{
 		int d = ((n<0) ? -1 : 1);
@@ -470,6 +497,9 @@ public class idx {
 		return ( nNode>0 && sRecno>0 && nKey>=0 && sRecno==recno && pgR[nKey] == recno);
 	}
 	
+	/*
+	 * It is a bad idea to write index in java
+	 */
 	private void remove_key()
 	{
 		goNode();
@@ -557,13 +587,14 @@ public class idx {
 				// When modifying data, index sometimes result to 0-data page that should be removed.
 				// Java makes simply key count to 0, that is incorrect for FoxPro.
 				// But, proper index for fast searching should be a binary tree with index pages inside.
-				// Set to true when deciding not to SEEK data in FoxPro later.
-				boolean INDEX_PAGES_INSIDE_IDX = false;
+				// This is a hack to get indexing through java, not precise.
+				
+				boolean INDEX_PAGES_INSIDE_IDX = true;
 				
 				if(INDEX_PAGES_INSIDE_IDX)
 				{
-					// This is better for binary search, but Fox sometimes can't find
-					
+					// This is better for binary search,
+					// but FoxPro sometimes can't find in these index pages.
 				long nwR = fileend;
 				long nwL = fileend+512;
 
@@ -642,7 +673,7 @@ public class idx {
 				}
 				else	//INDEX_PAGES_INSIDE_IDX == false
 				{
-						// Don't use index pages at all
+						// If should not use index pages at all, just add keys in lists.
 				if(right_page>0)
 				{
 					nNode = right_page; goNode();
@@ -724,10 +755,10 @@ public class idx {
 		writeNumber(0,2,key_len,false);
 		writeNumber(0,1,flags,false);
 		writeNumber(0,1,signature,false);
-		writeChars(220,keyString);
-		writeChars(220,forString);
+		writeChars0(220,keyString);
+		writeChars0(220,forString);
 		
-		writeChars(56,"");		
+		writeChars0(56,"");		
 		
 		attrib = 3;
 		key_cnt = 0;
@@ -739,7 +770,7 @@ public class idx {
 		writeNumber(0,4,left_page,true);
 		writeNumber(0,4,right_page,true);
 
-		writeChars(500,"");
+		writeChars0(500,"");
 
 	}
 	

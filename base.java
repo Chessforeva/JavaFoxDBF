@@ -30,6 +30,7 @@ public class base {
 	 *  To use byte[] array, set to true.
 	 */
 	public boolean BINARY_CHARS = false;
+	public boolean READ_ONLY = false;
 	
 	// first byte of the file is signature (ignored on use)
 	private byte signature = 0;
@@ -51,13 +52,15 @@ public class base {
 	public byte language_driver = LANG_RUS_WINDOWS;
 	
 	private boolean fpt_file = false;
-	//private boolean cdx_file = false;
+	private boolean cdx_file = false;
 	
-	private String dbfname, fptname;
-	//private String cdxname;
+	public String alias;				// the same as ALIAS()
 	
+	private String dbfname, fptname, cdxname;
 	
-	public idx order;
+	public String order;				// the same as ORDER()
+	public idx Idx;
+	public cdx Cdx;
 	
 	private static long lsh31bit = (1L<<31);
 	private static long lsh32bit = (1L<<32);
@@ -74,32 +77,49 @@ public class base {
 		catch (IOException e) { e.printStackTrace();
 		}
 	}
+	private boolean isReadOnly()
+	{
+		if(cdx_file) READ_ONLY = true;
+		if(READ_ONLY)
+			{
+			try { throw new IOException ("Read only mode!"); }
+			catch (IOException e) { e.printStackTrace(); }
+			}
+		return READ_ONLY;
+	}
+	
+	private String Spaces(int n)
+	{	return new String(new char[n]).replace("\0", " ");	}
+	
+	private String fmode()			// file modes
+	{	return "r" + (READ_ONLY ? "" : "w" );	}
 	
 	private long readNumber ( int db, int l )
 	{
 		long r = 0, b = 1;
 		int q=0;
 		RandomAccessFile f = ( db==0 ? fdbf : db==1 ? ffpt : fcdx );
-		if(db>0 && l>1) b<<=(8*(l-1));
-		for(;l>0;l--)
+		byte[] g = new byte[l];
+		try { f.read(g); }
+		catch (IOException e) { e.printStackTrace(); }
+		
+		if(db>0 && l>1) b<<=((l-1)<<3);
+		for(int i=0;i<l;i++)
 			{
-			try { q = f.readUnsignedByte(); } catch (IOException e) { e.printStackTrace(); }
-			r+= b*q;
+			q = g[i]; if(q<0) q+=0x100;
+			r|= b*q;
 			if(db>0) b>>=8; else b<<=8;
 			}
 		return r;
 	}
 	
-	private String readChars ( int db, long l )
+	private String readChars ( int db, int ln )
 	{
+		byte[] b = new byte[ln];
 		RandomAccessFile f = ( db==0 ? fdbf : db==1 ? ffpt : fcdx );
+		try { f.read(b); } catch (IOException e) { e.printStackTrace(); }
 		String s = "";
-		for(;l>0;l--)
-			{
-			try {
-				byte c = (byte) f.readUnsignedByte(); s+=(char)c;
-				} catch (IOException e) { e.printStackTrace(); }
-			}
+		for(int i=0;i<ln;i++) s+=(char)b[i];
 		return s;
 	}
 	
@@ -107,8 +127,7 @@ public class base {
 	{
 		byte[] b = new byte[ln];
 		RandomAccessFile f = ( db==0 ? fdbf : db==1 ? ffpt : fcdx );
-		for(int i=0;i<ln;i++)
-			try { b[i]= (byte) f.readUnsignedByte(); } catch (IOException e) { e.printStackTrace(); }
+		try { f.read(b); } catch (IOException e) { e.printStackTrace(); }
 		return b;
 	}
 	
@@ -116,32 +135,43 @@ public class base {
 	{
 		long r = numb;
 		RandomAccessFile f = ( db==0 ? fdbf : db==1 ? ffpt : fcdx );
-		for(int l=ln;l>0;l--)
+		byte[] g = new byte[ln];
+		for(int i=0, l=ln;l>0;l--)
 			{
-			if(db>0) r=(l==1? numb : numb>>(8*(l-1)) );
+			if(db>0) r=(l==1? numb : numb>>((l-1)<<3) );
 			int b = (int)(r & 0xff);
-			try { f.writeByte(b); } catch (IOException e) { e.printStackTrace(); }
+			g[i++]=(byte)b;
 			if(db==0) r>>=8;
 			}
+		try { f.write(g); }
+		catch (IOException e) { e.printStackTrace(); }
+		
 	}
 	
-	private void writeChars( int db, long ln, String sc )
+	private void writeChars( int db, int ln, String sc )
 	{
 		RandomAccessFile f = ( db==0 ? fdbf : db==1 ? ffpt : fcdx );
 		int l = sc.length();
-		for(int i=0;i<ln;i++)
+		int ml = Math.min(ln,l);
+		try { f.writeBytes( (l==ml ? sc : sc.substring(0,ml)) ); }
+		catch (IOException e) { e.printStackTrace(); }
+		if(ln>l)
 			{
-			try { f.writeByte( (i<l ? (byte)sc.charAt(i) : ' ')); } catch (IOException e) { e.printStackTrace(); }
+			String s = new String(new char[ln-l]).replace("\0", " ");
+			try { f.writeBytes(s); } catch (IOException e) { e.printStackTrace(); }
 			}
 	}
 	
-	private void writeBytes( int db, long ln, byte[] b )
+	private void writeBytes( int db, int ln, byte[] b )
 	{
 		RandomAccessFile f = ( db==0 ? fdbf : db==1 ? ffpt : fcdx );
 		int l = b.length;
-		for(int i=0;i<ln;i++)
+		try { f.write(b,0,Math.min(ln,l)); }
+		catch (IOException e) { e.printStackTrace(); }
+		if(ln>l)
 			{
-			try { f.writeByte( (i<l ? (byte)b[i] : ' ')); } catch (IOException e) { e.printStackTrace(); }
+			try { f.writeBytes(Spaces(ln-l)); }
+			catch (IOException e) { e.printStackTrace(); }
 			}
 	}
 	
@@ -160,6 +190,7 @@ public class base {
 	
 	private void upd_reccount()
 	{
+		if(isReadOnly()) return;
 		try { fdbf.seek(4); } catch (IOException e) {}
 		writeNumber(0,4, reccount );
 	}
@@ -175,7 +206,7 @@ public class base {
 		record_size = readNumber(0,2);
 		
 		try { fdbf.seek(28); } catch (IOException e) {}
-		//cdx_file = ( readChars(0,1).charAt(0) > 0 );		
+		cdx_file = ( readChars(0,1).charAt(0) > 0 );		
 	}
 	
 	private void getfptbeginptr()
@@ -216,7 +247,8 @@ public class base {
 		if(recno>reccount)
 			{
 			recno = reccount+1;
-			if(order!=null) order.recno = recno;
+			if(Idx!=null) Idx.recno = recno;
+			else if(cdx_file) Cdx.recno = recno;
 			}
 		eof = (recno>reccount);
 	}
@@ -226,7 +258,8 @@ public class base {
 		if(recno<0)
 			{
 			recno = 0;
-			if(order!=null) order.recno = recno;
+			if(Idx!=null) Idx.recno = recno;
+			else if(cdx_file) Cdx.recno = recno;
 			}
 		bof = (recno<1);
 	}	
@@ -247,15 +280,21 @@ public class base {
 		else dbfname = f + ".DBF";
 		
 		fptname = f + ".FPT";
-		//cdxname = f + ".CDX";
-		
+		cdxname = f + ".CDX";
+		for(int i=f.length(); i>0;)
+			{
+			char c = f.charAt(--i);
+			if(c=='/' || c=='\\') { f=f.substring(i+1); break; }
+			}
+		alias = f.toUpperCase();
+		order = "";
 	}
 	
 	public void use ( String filename )
 	{		
 		setfnames( filename );	
 		try {
-			fdbf = new RandomAccessFile( new File( dbfname ),"rw");
+			fdbf = new RandomAccessFile( new File( dbfname ), fmode());
 			} catch (FileNotFoundException e1) { e1.printStackTrace(); }
 		
 		getdatabeginptr();
@@ -265,15 +304,23 @@ public class base {
 		if(fpt_file)
 			{
 				try {
-				ffpt = new RandomAccessFile( new File(fptname ),"rw");
+				ffpt = new RandomAccessFile( new File(fptname ), fmode());
 				} catch (FileNotFoundException e1) { e1.printStackTrace(); }
 				
 				getfptbeginptr();
 			}
-		//if(cdx_file) try {
-		//		fcdx = new RandomAccessFile( new File( cdxname ),"rw");
-		//		} catch (FileNotFoundException e1) { e1.printStackTrace(); }
-		
+		if(cdx_file)
+			{
+			READ_ONLY = true;
+			try {
+
+				fcdx = new RandomAccessFile( new File( cdxname ), fmode());
+				} catch (FileNotFoundException e1) { e1.printStackTrace(); }
+			Cdx = new cdx();
+			Cdx.fcdx = fcdx;
+			Cdx.read_header();
+			
+			}
 		go_recno(1);
 	}
 
@@ -281,21 +328,25 @@ public class base {
 	{
 		try { fdbf.close(); } catch (IOException e) { e.printStackTrace(); }
 		if(fpt_file) try { ffpt.close(); } catch (IOException e) { e.printStackTrace(); }
-		//if(cdx_file) try { fcdx.close(); } catch (IOException e) { e.printStackTrace(); }
+		if(cdx_file) try { fcdx.close(); } catch (IOException e) { e.printStackTrace(); }
 		set_order_to();
+		alias = "";
 		Field = new field[254];
 		fcount = 0;
 		recno = 0;
-		if(order!=null) order.recno = recno;
+		if(Idx!=null) Idx.recno = recno;
+		else if(cdx_file) Cdx.recno = recno;
 		reccount = 0;
 		geteof(); getbof();
 	}
 	
 	public void create( String filename, String struct )
 	{
+		if(isReadOnly()) return;
+		
 		setfnames( filename );
 		try {
-			fdbf = new RandomAccessFile( new File( dbfname ),"rw");
+			fdbf = new RandomAccessFile( new File( dbfname ), fmode());
 			} catch (FileNotFoundException e1) { e1.printStackTrace(); }
 		try { fdbf.setLength(0); } catch (IOException e) { e.printStackTrace(); }
 		writeSpc(0,32,false);
@@ -370,7 +421,7 @@ public class base {
 		if(fpt_file)
 			{
 				try {
-					ffpt = new RandomAccessFile( new File( fptname ),"rw");
+					ffpt = new RandomAccessFile( new File( fptname ), fmode());
 				} catch (FileNotFoundException e1) { e1.printStackTrace(); }
 				
 				try { ffpt.setLength(0); } catch (IOException e) { e.printStackTrace(); }
@@ -445,7 +496,7 @@ public class base {
 					if(len>0)
 						{
 						if(BINARY_CHARS || y.ftype=='G' || y.binflag) y.setBinaries( readBytes(1,(int)len) );
-						else y.setByString( readChars(1,len) );
+						else y.setByString( readChars(1,(int)len) );
 						}
 					}
 			}
@@ -459,10 +510,18 @@ public class base {
 	
 	public void go_top()
 	{
-		if(order!=null)
+		if(order.length()>0)
 			{
-			order.goTop();
-			go_recno( order.found ? order.sRecno : 0 );
+			if(Idx!=null)
+				{
+				Idx.goTop();
+				go_recno( Idx.found ? Idx.sRecno : 0 );
+				}
+			else 
+				{
+				Cdx.goTop();
+				go_recno( Cdx.found ? Cdx.sRecno : 0 );
+				}
 			}
 		else go_recno(1);
 	}
@@ -470,7 +529,8 @@ public class base {
 	public void go_recno( long new_recno )
 	{
 		recno = new_recno;
-		if(order!=null) order.recno = recno;
+		if(Idx!=null) Idx.recno = recno;
+		else if(cdx_file) Cdx.recno = recno;
 		geteof(); getbof();
 		getfieldsValues();
 	}
@@ -478,21 +538,38 @@ public class base {
 	public void skip(long n)
 	{
 		if(n==0) n=1;
-		if(order!=null)
-			{
-			order.skip(n);
-			if(order.found) go_recno(order.sRecno);
-			else go_recno(n<0 ? 0 : reccount+1);
+		if(order.length()>0)
+			{		
+			if(Idx!=null)
+				{
+				Idx.skip(n);
+				if(Idx.found) go_recno(Idx.sRecno);
+				else go_recno(n<0 ? 0 : reccount+1);
+				}
+			else
+				{
+				Cdx.skip(n);
+				if(Cdx.found) go_recno(Cdx.sRecno);
+				else go_recno(n<0 ? 0 : reccount+1);
+				}
 			}
 		else go_recno( recno+n );
 	}
 	
 	public void go_bottom()
-	{
-		if(order!=null)
+	{		
+		if(order.length()>0)
 			{
-			order.goBottom();
-			go_recno( order.found ? order.sRecno : reccount+1 );
+			if(Idx!=null)
+				{
+				Idx.goBottom();
+				go_recno( Idx.found ? Idx.sRecno : reccount+1 );
+				}
+			else 
+				{
+				Cdx.goBottom();
+				go_recno( Cdx.found ? Cdx.sRecno : reccount+1 );
+				}
 			}
 		else go_recno( reccount );
 	}
@@ -502,12 +579,15 @@ public class base {
 		getreccount();		// update
 		recno = reccount+1;
 		reccount = recno;
-		if(order!=null) order.recno = recno;
+		if(Idx!=null) Idx.recno = recno;
+		else if(cdx_file) Cdx.recno = recno;
 		upd_reccount();		
 	}
 	
 	public void append_blank()
 	{
+		if(isReadOnly()) return;
+		
 		addreccount();
 		try { fdbf.seek( recordpos() ); } catch (IOException e) {}
 		writeChars(0,1," ");	// not deleted
@@ -529,6 +609,8 @@ public class base {
 	
 	private void replacefielddata( int i )
 	{
+		if(isReadOnly()) return;
+		
 		field y = Field[i];
 		if(y.ftype=='0') writeNumber(0,y.fsize,y.longValue());
 		else if(y.ftype=='I') writeNumber(0,4,y.longValue()); //write binary, not string value
@@ -573,8 +655,8 @@ public class base {
 				writeNumber(1,4,1);		// ignoring, 0-template, 1 if text string
 				writeNumber(1,4,len);
 				if((BINARY_CHARS || y.ftype=='G' || y.binflag) && y.binValue!=null)
-							writeBytes(1,len,y.binValue);
-				else writeChars(1,len,y.value);
+							writeBytes(1,(int)len,y.binValue);
+				else writeChars(1,(int)len,y.value);
 					
 				long f = 0, fs = (8+len), fn = 0;
 				for(;fn<fs;f++) fn+= fpt_block_size;					
@@ -588,6 +670,8 @@ public class base {
 	
 	private void replacedata( boolean repl )
 	{
+		if(isReadOnly()) return;
+		
 		try { fdbf.seek( recordpos() ); } catch (IOException e) {}
 		writeChars(0,1,(repl && deleted ? "*" : " "));
 		for(int i=0;i<fcount;i++) replacefielddata(i);
@@ -599,6 +683,8 @@ public class base {
 	
 	public void replace_field_from_memory( int i )
 	{
+		if(isReadOnly()) return;
+		
 		try { fdbf.seek( recordpos() + Field[i].fpos ); } catch (IOException e) {}
 		replacefielddata(i);
 		update_key();
@@ -607,17 +693,23 @@ public class base {
 	
 	public void insert_from_memory()
 	{
+		if(isReadOnly()) return;
+		
 		addreccount(); replacedata( false );
 	}
 	
 	public void delete()
 	{
+		if(isReadOnly()) return;
+		
 		try { fdbf.seek( recordpos() ); } catch (IOException e) {}
 		writeChars(0,1,"*"); deleted = true;
 	}
 
 	public void recall()
 	{
+		if(isReadOnly()) return;
+		
 		try { fdbf.seek( recordpos() ); } catch (IOException e) {}
 		writeChars(0,1," "); deleted = false;
 	}
@@ -635,8 +727,10 @@ public class base {
 	}
 	public void writeBinaryToFile( String filename, byte[] b )
 	{
+		if(isReadOnly()) return;
+		
 		RandomAccessFile f = null;
-		try { f =  new RandomAccessFile( new File( filename ),"rw"); }
+		try { f =  new RandomAccessFile( new File( filename ), fmode()); }
 		catch (FileNotFoundException e1) { e1.printStackTrace(); }
 		try { f.setLength(0); } catch (IOException e1) { e1.printStackTrace(); }
 		try { f.write(b); } catch (IOException e) { e.printStackTrace(); }
@@ -645,44 +739,82 @@ public class base {
 
 	public void set_order_to()
 	{
-		if(order!=null && order.fidx!=null)
-			try { order.fidx.close(); }
-			catch (IOException e) { e.printStackTrace(); }
-		order = null;
+		if(Idx!=null)
+			{
+			if(Idx.fidx!=null)
+				{
+				try { Idx.fidx.close(); }
+				catch (IOException e) { e.printStackTrace(); }
+				}
+			Idx = null;
+			}
+		order = "";
+		if(Cdx!=null) Cdx.I = -1;
 	}
 
-	public void set_order_to_idx( String idxFileName )
+	private boolean canIfNoCdx()	// if CDX is there, IDX disabled
 	{
-		order = new idx();
-		try { order.fidx =  new RandomAccessFile( new File( idxFileName ),"rw"); }
-		catch (FileNotFoundException e1) { e1.printStackTrace(); }
-		order.read_header();
-		if(order!=null) order.recno = recno;
-		updateseek();
+		if(cdx_file)
+			{
+			try { throw new IOException ("Do not use IDX over CDX!"); }
+			catch (IOException e) { e.printStackTrace(); }
+			return false;
+			}
+		return true;
 	}
 	
+	public void set_order_to_idx( String idxFileName )
+	{
+		if(canIfNoCdx())
+		{
+		order = "[idx]";
+		Idx = new idx();
+		try { Idx.fidx =  new RandomAccessFile( new File( idxFileName ), fmode()); }
+		catch (FileNotFoundException e1) { e1.printStackTrace(); }
+		Idx.read_header();
+		Idx.recno = recno;
+		updateseek();
+		}
+	}
+	
+	public void set_cdx_order( String tag )
+	{
+		if(Cdx!=null)
+			{
+			Cdx.setOrdByTag(tag);
+			if(Cdx.I>=0) order = Cdx.TagNames[Cdx.I];
+			Cdx.recno = recno;
+			updateseek();
+			}
+	}
+
 	public void create_idx( String idxFileName, String indexOnKeyString )
 	{
+		if(isReadOnly()) return;
 		
-		order = new idx();
-		try { order.fidx =  new RandomAccessFile( new File( idxFileName ),"rw"); }
+		if(canIfNoCdx())
+		{
+		order = "[idx]";
+		Idx = new idx();
+		try { Idx.fidx =  new RandomAccessFile( new File( idxFileName ), fmode()); }
 		catch (FileNotFoundException e1) { e1.printStackTrace(); }
-		try { order.fidx.setLength(0); } catch (IOException e) { e.printStackTrace(); }
+		try { Idx.fidx.setLength(0); } catch (IOException e) { e.printStackTrace(); }
 		
-		order.keyString = indexOnKeyString.toUpperCase().trim();
-		order.forString = "";
+		Idx.keyString = indexOnKeyString.toUpperCase().trim();
+		Idx.forString = "";
 		
 		// to obtain key length
 		// be careful if self written
-		PREPARE_KEY_FROM_DATA();
+		PREPARE_KEY_FROM_DATA( Idx );
 				
-		int keyLen = order.searchKey.length;
+		int keyLen = Idx.searchKey.length;
 				
-		order.writeHeaderToEmptyFile( keyLen );
+		Idx.writeHeaderToEmptyFile( keyLen );
 		
-		try { order.fidx.close(); } catch (IOException e) { e.printStackTrace(); }
+		try { Idx.fidx.close(); } catch (IOException e) { e.printStackTrace(); }
 		
-		set_order_to_idx( idxFileName );	
+		set_order_to_idx( idxFileName );
+		}
 	}
 
 	byte[] cSKey;				// holds current index key to know that index modified
@@ -691,46 +823,53 @@ public class base {
 	// Prepares for skips/modifying data
 	private void updateseek()
 	{
-		if(order!=null && recno>0 && recno<=reccount)
+		if(order.length()>0 && recno>0 && recno<=reccount)
 			{
-		
-			PREPARE_KEY_FROM_DATA();		// =EVALUATE( KEY() ) gives current result
+			idx O = ( Cdx==null ? Idx :
+				( Cdx.I>=0 ? Cdx.Idx[ Cdx.I ] : null ));			
+
+			if(O!=null)
+			{		
+			PREPARE_KEY_FROM_DATA( O );		// =EVALUATE( KEY() ) gives current result
 			
-			if(order.searchKey!=null)
+			if(O.searchKey!=null)
 				{
-				cSKey = order.searchKey.clone();
+				cSKey = O.searchKey.clone();
 				
-				order.seek(true);
+				if( Cdx==null ) Idx.seek(true);
+				else Cdx.seek(true);
 				
 				// unique is the same as "FOR=the first element only"
 				// So, in case of .F., there is no pointer to the record in index for the data
-				if(!( order.UNIQUE || order.FOR))
+				if(!(O.UNIQUE || O.FOR))
 					{
-					if( order.sRecno!=recno )
+					if( O.sRecno!=recno )
 						{
 						// If record doesn't match* by seek, try finding backwards from the bottom.
 						// Of course, this record finding isn't norm. Mostly for debugging only.
 						//  *keys for overflow numbers sometimes also are incorrect
 						// (but databases should not contain data like that)
-						order.findFullscanIndexByRecno();
+						if( Cdx==null ) Idx.findFullscanIndexByRecno();
+						else Cdx.findFullscanIndexByRecno();
 						}
-					if(order.sRecno!=recno)		// order.recno is equal
+					if(O.sRecno!=recno)		// Idx.recno is equal
 						{
 						try { throw new IOException ("Index doesn't match! For recno=" + 
-								String.valueOf(recno) + ",  index recno=" + String.valueOf(order.sRecno) ); }
+								String.valueOf(recno) + ",  index recno=" + String.valueOf(O.sRecno) ); }
 						catch (IOException e) { e.printStackTrace(); }
 						}
 					}
 				}
 			}
+			}
 	}
 	
 	// this is index expression to data connection
-	private void PREPARE_KEY_FROM_DATA()
+	private void PREPARE_KEY_FROM_DATA( idx I )
 	{
-		order.searchKey = null;
+		I.searchKey = null;
 		
-		String ss = order.keyString.toUpperCase();		// keys FIELD+... too
+		String ss = I.keyString.toUpperCase();		// keys FIELD+... too
 		int i=-1;
 		for(i=fcount-1; i>=0; i--)
 			{
@@ -741,11 +880,12 @@ public class base {
 		if(!cant)	// field is a key
 			{
 			field y = Field[i];
+			I.sType = y.ftype;
 							
 			if( (("NFBIY").indexOf(y.ftype)>=0) &&
 					((y.value.indexOf("*")>=0) || (y.value.indexOf("NaN")>=0)))	// overflow keys
 			{	// always at the end of the index
-				order.prepareSeekByReadyKey( 0x8000000000000000L );
+				I.prepareSeekByReadyKey( 0x8000000000000000L );
 				// sometimes  0xfff0000000000000L;
 			}				
 			else	// normal values
@@ -753,66 +893,95 @@ public class base {
 			if(y.ftype=='C')
 				{
 				y.padr();
-				order.prepareSeekByString( y.value );
+				I.prepareSeekByString( y.value );
 				}
 			else if(("NFB").indexOf(y.ftype)>=0)
 				{
-				if(y.fsize_dec>0) order.prepareSeekByDouble( y.doubleValue() );
-				else order.prepareSeekByLong( y.longValue() );
+				if(y.fsize_dec>0) I.prepareSeekByDouble( y.doubleValue() );
+				else I.prepareSeekByLong( y.longValue() );
 				}
-			else if (y.ftype=='D') order.prepareSeekByDateString( y.value );
+			else if (y.ftype=='D') I.prepareSeekByDateString( y.value );
 			else if (y.ftype=='Y')
 				{
 				double dou = y.doubleValue();
 				dou *= currency_e10;
-				order.prepareSeekByCurrency( dou );
+				I.prepareSeekByCurrency( dou );
 				}
-			else if (y.ftype=='I') order.prepareSeekBybinInt( y.longValue() );
-			else if (y.ftype=='L') order.prepareSeekByBoolean( y.value.charAt(0) );		
+			else if (y.ftype=='I') I.prepareSeekBybinInt( y.longValue() );
+			else if (y.ftype=='L') I.prepareSeekByBoolean( y.value.charAt(0) );		
 			else if (y.ftype=='T')
 				{
 				long dt = 0;
 				if(y.value.trim().length()>0) dt = datestr.dateFromDateTime(y.value)<<32;
-				order.prepareSeekDateTime( dt );
+				I.prepareSeekDateTime( dt );
 				}
 			else cant = true;	// can not anyway			
 			}
 			
-		if((!cant) && order.FOR)
+		if((!cant) && I.FOR)
 			{
 			// don't know how to make FOR filter from expression, write code here
 			// if .T., key is good already
 			// if .F., simply set key to null and don't search/apply
-			try { throw new IOException ("Don't know FOR() result from expression " + order.forString  + "!"); }
+			try { throw new IOException ("Don't know FOR() result from expression " + I.forString  + "!"); }
 			catch (IOException e) { e.printStackTrace(); }
 			
-			//if(false) order.searchKey = null;
+			//if(false) I.searchKey = null;
 			}
 
 		if(cant)
-			{
+			{		
+			
 				// don't know how to make index key from expression, write code here
-				try { throw new IOException ("Don't know key from index expression " + order.keyString  + "!"); }
+				try { throw new IOException ("Don't know key from index expression " + I.keyString  + "!"); }
 				catch (IOException e) { e.printStackTrace(); }
+				
+				//==== template to prepare I.searchKey
+				//====   for sample index   INDEX ON DTOS(Birth) TAG BirthD
+				//====    to seek this record in database
+				//if(alias.equals("MYBASE") && order.equals("BIRTHD"))
+				//  I.prepareSeekByString( db.Field[ db.FieldI("Birth") ].stringValue() );
+
 				}
 			}
 	}
 	
 	public boolean SEEK()
 	{	
-		PREPARE_KEY_FROM_DATA();
-		order.seek(false);
-		go_recno( order.found ? order.sRecno : reccount+1 );		// otherwise sRecno contains nearest
+		if(order.length()>0)
+			{
+			idx O = ( Cdx==null ? Idx :
+				( Cdx.I>=0 ? Cdx.Idx[ Cdx.I ] : null ));
+			
+			if(O!=null)
+				{
+				PREPARE_KEY_FROM_DATA( O );
+				
+				if(Idx!=null) Idx.seek(false);
+				else Cdx.seek(false);
+				
+				go_recno( O.found || (O.sRecno>0) ? O.sRecno : reccount+1 );
+				// otherwise sRecno contains nearest
+				}
+			}
+
 		return false;
 	}
 	
 	public void update_key()
 	{	
-		if(order!=null)
+		if(isReadOnly()) return;
+		
+		if(Idx!=null)
 			{
-			PREPARE_KEY_FROM_DATA();
-			if(cSKey==null || (!cSKey.equals(order.searchKey)))
-				order.replace_key();
+			PREPARE_KEY_FROM_DATA( Idx );
+			if(cSKey==null || (!cSKey.equals(Idx.searchKey)))
+				Idx.replace_key();
+			}
+		if(cdx_file)
+			{
+			// TODO:
+			// update all key values for this record for all tags
 			}
 	}
 }
