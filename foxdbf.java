@@ -2,6 +2,7 @@ package com.foxdbf;
 
 /**
  * Sample Java class for FoxPro DBF files.
+ *  version BETA.2 (2014.dec)
  * 
  * Please, donate by visiting our sponsors
  *   http://chessforeva.blogspot.com
@@ -34,7 +35,7 @@ public class foxdbf {
 			else
 				{
 			 	System.out.print("Not found?! Should be.\n");
-				// db.idx.sRecno contains nearest record, so go to this and skip
+				// db.Idx.sRecno contains nearest record, so go to this and skip
 			 	}
 			}
 
