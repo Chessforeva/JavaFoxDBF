@@ -59,7 +59,7 @@ public class base {
 	
 	public String alias;				// the same as ALIAS()
 	
-	private String dbfname, fptname, cdxname;
+	private String ext, dbfname, fptname, cdxname;
 	
 	public String order;				// the same as ORDER()
 	public idx Idx;
@@ -278,12 +278,15 @@ public class base {
 		String f = filename;
 		
 		int l = f.length();
-		if( l>4 && f.toLowerCase().substring(l-4).equals(".dbf") )
-			{ dbfname = f; f = f.substring(0,l-4);  }
-		else dbfname = f + ".DBF";
+		ext = (( l>4 && f.charAt(l-4) == '.' ) ? f.substring(l-3) : "" );
 		
-		fptname = f + ".FPT";
-		cdxname = f + ".CDX";
+		if( ext.toLowerCase().equals("dbf") ) { dbfname = f; f = f.substring(0,l-4); }
+		else { ext = "DBF" ; dbfname = f + "." + ext; }
+		
+		boolean sm = ext.equals("dbf");
+			
+		fptname = f + "." + ( sm ? "fpt" : "FPT" );
+		cdxname = f + "." + ( sm ? "cdx" : "CDX" );
 		for(int i=f.length(); i>0;)
 			{
 			char c = f.charAt(--i);
@@ -778,13 +781,22 @@ public class base {
 		return true;
 	}
 	
+	private String g_idxname( String f )
+	{
+		int l = f.length();
+		String iext = (( l>4 && f.charAt(l-4) == '.' ) ? f.substring(l-3) : "" );
+		
+		if( !iext.toLowerCase().equals("idx") ) f += "."+ (ext=="dbf" ? "idx" : "IDX");
+		return f;
+	}
+	
 	public void set_order_to_idx( String idxFileName )
 	{
 		if(canIfNoCdx())
 		{
 		order = "[idx]";
 		Idx = new idx();
-		try { Idx.fidx =  new RandomAccessFile( new File( idxFileName ), fmode()); }
+		try { Idx.fidx =  new RandomAccessFile( new File( g_idxname(idxFileName) ), fmode()); }
 		catch (FileNotFoundException e1) { e1.printStackTrace(); }
 		Idx.read_header();
 		Idx.recno = recno;
@@ -811,7 +823,7 @@ public class base {
 		{
 		order = "[idx]";
 		Idx = new idx();
-		try { Idx.fidx =  new RandomAccessFile( new File( idxFileName ), fmode()); }
+		try { Idx.fidx =  new RandomAccessFile( new File( g_idxname(idxFileName) ), fmode()); }
 		catch (FileNotFoundException e1) { e1.printStackTrace(); }
 		try { Idx.fidx.setLength(0); } catch (IOException e) { e.printStackTrace(); }
 		
