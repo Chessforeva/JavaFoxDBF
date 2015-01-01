@@ -128,7 +128,7 @@ SEEK() - does searching according to data in memory variables Field[x]
 The PREPARE_KEY_FROM_DATA() procedure prepares searchKey according to data and searching expression
 (if key is a field value, it converts automatically,
  otherwise write java code there to prepare user defined keys as DTOS(data)+.. or SYS(15,data..) ,
- this is not original FoxPro)
+ this is not original FoxPro :)
 
 Index sample1: create and write indexed database (prepare for lags)
 
@@ -142,8 +142,7 @@ for(int k=0;k<100;k++)		// append 100 indexed records
 for(int k=99;k>=0;k--)		// find them all by key and replace with (5000-value)
 	{
 	db.Field[0].setByLong(k);
-	db.SEEK();
-	if(!db.eof)
+	if(db.SEEK())
 		{
 		db.Field[0].setByLong(5000-k);
 		db.replace_from_memory();

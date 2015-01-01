@@ -2,6 +2,9 @@ package com.foxdbf;
 
 import java.io.*;
 
+// used documentations:
+// http://www.clicketyclick.dk/databases/xbase/format/dbf.html
+
 public class base {
 	
 	public field[] Field = new field[254];
@@ -393,19 +396,24 @@ public class base {
 				writeChars(0,1,""+ftype);
 				writeNumber(0,4,fpos); fpos += fsize;
 				writeNumber(0,1,fsize);
-				writeNumber(0,1,fsize_dec);
-				writeSpc(0,14,false);
+				int dc1 = ((ftype=='B' || ftype=='Y') ? 4 : fsize_dec);
+				writeNumber(0,1,dc1);
+				int dc2 = ((ftype=='B' || ftype=='Y' || ftype=='I') ? 4 : 0);
+				writeNumber(0,1,dc2);
+				writeSpc(0,13,false);
 				fcount++;
 			}
 		writeChars(0,1,""+(char)0xd);		// the end of structure
-		writeSpc(0,(1<<9), false);			// empty block space
+		
+		int emp_spc = (1<<9);				// add some bytes
+		writeSpc(0, emp_spc, false);		// empty block space
 		
 		try { fdbf.seek(0); } catch (IOException e) {}
 		signature = ( fpt_file ?  (DOS_FOX ? SIG_DOSFOX_WITH_MEMO : SIG_WINFOX_WITH_MEMO) : SIG_NO_MEMO );
 		try { fdbf.writeByte(signature); } catch (IOException e) { e.printStackTrace(); }
 
 		try { fdbf.seek(8); } catch (IOException e) {}
-		writeNumber(0,2,((fcount+1)<<5)+(1<<9));				// data begin at
+		writeNumber(0,2,((fcount+1)<<5)+emp_spc+1);				// data begin at
 		writeNumber(0,2,fpos);									// record size
 		
 		if(!DOS_FOX)
@@ -413,6 +421,7 @@ public class base {
 		try { fdbf.seek(29); } catch (IOException e) {}
 		writeChars(0,1,""+(char)language_driver);				// Language driver
 		}
+		
 
 		reccount = 0;	//upd_reccount();
 		getdatabeginptr();
@@ -420,6 +429,12 @@ public class base {
 
 		if(fpt_file)
 			{
+				if(!DOS_FOX)
+				{
+					try { fdbf.seek(28); } catch (IOException e) {}
+					writeChars(0,1,"" + (char)0x02);		// MDX flag
+				}
+			
 				try {
 					ffpt = new RandomAccessFile( new File( fptname ), fmode());
 				} catch (FileNotFoundException e1) { e1.printStackTrace(); }
@@ -962,6 +977,8 @@ public class base {
 				
 				go_recno( O.found || (O.sRecno>0) ? O.sRecno : reccount+1 );
 				// otherwise sRecno contains nearest
+				
+				return O.found;
 				}
 			}
 
@@ -976,7 +993,7 @@ public class base {
 			{
 			PREPARE_KEY_FROM_DATA( Idx );
 			if(cSKey==null || (!cSKey.equals(Idx.searchKey)))
-				Idx.replace_key();
+				Idx.replace_key();	// this is a hack too much
 			}
 		if(cdx_file)
 			{

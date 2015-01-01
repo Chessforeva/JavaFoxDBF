@@ -2,6 +2,10 @@ package com.foxdbf;
 
 import java.io.*;
 
+// used documentations:
+// http://www.clicketyclick.dk/databases/xbase/format/idx.html
+// http://harbour-project.org
+
 public class idx {
 
 	public RandomAccessFile fidx;	// idx file pointer
@@ -177,10 +181,10 @@ public class idx {
 		forString = readChars(220).replace("\0", " ").trim();	
 	}
 	
-	// prepare buffer 100 keys 100char long (increase if need)
+	// prepare buffer 300 keys 100char long (increase if need)
 	private void prepArrs()
 	{
-		int key_cnt = 100;
+		int key_cnt = 300;
 		int key_Clen = 100;
 		pgC = new byte[key_cnt][key_Clen];
 		pgR = new long[key_cnt];
@@ -484,6 +488,14 @@ public class idx {
 			}
 	}
 	
+	private boolean isKeyCurrent()
+	{
+		return ( nNode>0 && sRecno>0 && nKey>=0 && sRecno==recno && pgR[nKey] == recno);
+	}
+
+	//=============== The code below does not work properly as FoxPro environment platform
+	// Documentation: 
+	
 	// sets the new index pointer for modified data record
 	// searchKey should contain new index key value
 	public void replace_key()
@@ -491,15 +503,10 @@ public class idx {
 		if( isKeyCurrent() ) remove_key();		// simply, without optimal space saving algorithms
 		if(searchKey!=null) append_key();
 	}
-	
-	private boolean isKeyCurrent()
-	{
-		return ( nNode>0 && sRecno>0 && nKey>=0 && sRecno==recno && pgR[nKey] == recno);
-	}
-	
-	/*
-	 * It is a bad idea to write index in java
-	 */
+		
+	//
+	// It is a bad idea to write index in java
+	//
 	private void remove_key()
 	{
 		goNode();
@@ -584,12 +591,13 @@ public class idx {
 				
 				kNd = nNode;	//current node
 				
+				// TODO:
 				// When modifying data, index sometimes result to 0-data page that should be removed.
 				// Java makes simply key count to 0, that is incorrect for FoxPro.
 				// But, proper index for fast searching should be a binary tree with index pages inside.
 				// This is a hack to get indexing through java, not precise.
 				
-				boolean INDEX_PAGES_INSIDE_IDX = true;
+				boolean INDEX_PAGES_INSIDE_IDX = true;	// ughh...
 				
 				if(INDEX_PAGES_INSIDE_IDX)
 				{
@@ -671,7 +679,7 @@ public class idx {
 				nKey = (kc<=nk ? nk-kc : nk);
 				
 				}
-				else	//INDEX_PAGES_INSIDE_IDX == false
+				else	//INDEX_PAGES_INSIDE_IDX == false (much faster, but incorrect)
 				{
 						// If should not use index pages at all, just add keys in lists.
 				if(right_page>0)

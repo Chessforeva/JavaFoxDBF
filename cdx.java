@@ -2,6 +2,16 @@ package com.foxdbf;
 
 import java.io.*;
 
+// used documentations:
+// http://www.clicketyclick.dk/databases/xbase/format/cdx.html
+// http://harbour-project.org
+
+// TODO:
+// I decided not to make CDX modifications part now
+// because it is almost impossible to do it without losing data accuracy.
+// I hate regular re-indexing as a solution to bad database engine in FoxPro.
+// Of course, this code may be improved someday by somebody.
+
 public class cdx {
 
 	public RandomAccessFile fcdx;	// cdx file pointer
@@ -112,10 +122,10 @@ public class cdx {
 		readPage();		// read data of indexes
 	}
 	
-	// prepare buffer 100 keys 100char long (increase if need)
+	// prepare buffer 300 keys 100char long (increase if need)
 	private void prepArrs()
 	{
-		int key_cnt = 100;
+		int key_cnt = 300;
 		int key_Clen = 100;
 		pgC = new byte[key_cnt][key_Clen];
 		pgR = new long[key_cnt];
