@@ -2,7 +2,7 @@
 
 README for FoxDbf java source
 *
- * Please, donate by visiting our sponsors
+ * Please, visit our sponsors
  *   http://chessforeva.blogspot.com
  *   
  *   
@@ -176,7 +176,7 @@ while(!db.eof)					// should be numbers in descending order
 	db.skip(1);
 	}
 db.use();
-db.READ_ONLY = true;			// set writing mode on
+db.READ_ONLY = false;			// set writing mode on
 
 
 // Verify in FoxPro by commands
@@ -202,3 +202,30 @@ while(!db.eof)					// should be numbers in descending order
 db.use();
 
  */
+
+/*
+REMARKS 03.2022, noobies faq.
+
+A few notes about real FoxPro and history.
+FoxPro was a good fast and very cheap database solution for a PC, or small network. PCs were insufficient, awful quality.
+Properly designed expensive databases required SQL - with power reliable server responding to multi-users queries.
+So, FoxPro was used as a temporary prototype database that grew up to a large system due to "no time to rewrite it all".
+As DBFs,FPT,CDX,IDX files were buffered (wr./read) on each very slow! PC these days by kinda locking-ethernet-hack,
+there always were power-supply cuts, bad disk drives, lost networks, that corrupted almost everything.
+Errors like "Not a database file", "Index file does not match database", and similar, like time-bombs blasted and 
+required the database admin to run and pack, and reindex, use smart hack tools tos restore the database system.
+Especially with dozens of users waiting. Never again.
+
+Nevertheless the DBF indexing (CDX complex) worked almost instantly, very fast.
+DBF could reach 2GB size limit. And FPT another 2GB. That was huge amount of data then.
+It is like a fast JSON request in a read only large table.
+Very powerful thing. Binary search and not a full-scan. Opens the file and reads data the right way.
+But no writing, this requires a proper database engine. Or write a new one transaction safe.
+
+The other well working solution, especially serving web pages, was a foxpro process running
+in background on server that processed appearing request files in folder, and wrote answers
+to files for php-servers. This is still reliable.
+Anyway there are NoSQL, EasySQL, MySQL, others nowadays. No big reason to revive the dead. 
+And btw. the UniCode characters, avatar pictures, video streaming, foxpro has nothing to do with it all.
+
+*/
