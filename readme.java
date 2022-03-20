@@ -213,7 +213,7 @@ So, FoxPro was used as a temporary prototype database that grew up to a large sy
 As DBFs,FPT,CDX,IDX files were buffered (wr./read) on each very slow! PC these days by kinda locking-ethernet-hack,
 there always were power-supply cuts, bad disk drives, lost networks, that corrupted almost everything.
 Errors like "Not a database file", "Index file does not match database", and similar, like time-bombs blasted and 
-required the database admin to run and pack, and reindex, use smart hack tools tos restore the database system.
+required the database admin to run and pack, and reindex, use smart hack tools to restore the database system.
 Especially with dozens of users waiting. Never again.
 
 Nevertheless the DBF indexing (CDX complex) worked almost instantly, very fast.
