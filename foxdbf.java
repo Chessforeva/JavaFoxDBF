@@ -1,10 +1,10 @@
 package com.foxdbf;
 
 /**
- * Sample Java class for FoxPro DBF files.
+ * Simple Java class for FoxPro DBF files.
  *  version BETA.2 (2014.dec)
  * 
- * Please, donate by visiting our sponsors
+ * Please, visit our sponsors
  *   http://chessforeva.blogspot.com
  *   
  */
@@ -82,7 +82,7 @@ public class foxdbf {
 			db.skip(1);
 			}
 		db.use();
-		db.READ_ONLY = true;			// set writing mode on
+		db.READ_ONLY = false;			// set writing mode on
 
 
 		// Verify in FoxPro by commands
