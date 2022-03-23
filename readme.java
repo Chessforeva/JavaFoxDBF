@@ -207,13 +207,13 @@ db.use();
 REMARKS 03.2022, noobies faq.
 
 A few notes about real FoxPro and history.
-FoxPro was a good fast and very cheap database solution for a PC, or small network. PCs were insufficient, awful quality.
-Properly designed expensive databases required SQL - with power reliable server responding to multi-users queries.
+FoxPro was a good fast and very cheap "as a database" solution for a PC, or small network. PCs were insufficient, awful quality.
+While properly designed expensive databases required SQL - with power reliable server responding to multi-users queries.
 So, FoxPro was used as a temporary prototype database that grew up to a large system due to "no time to rewrite it all".
-As DBFs,FPT,CDX,IDX files were buffered (wr./read) on each very slow! PC these days by kinda locking-ethernet-hack,
+As DBFs,FPT,CDX,IDX files were buffered (wr./read) on each very slow! PC those days by kinda locking-ethernet-hack,
 there always were power-supply cuts, bad disk drives, lost networks, that corrupted almost everything.
 Errors like "Not a database file", "Index file does not match database", and similar, like time-bombs blasted and 
-required the database admin to run and pack, and reindex, use smart hack tools to restore the database system.
+forced the database admin to run and pack DBFs, and reindex, use smart hack tools to restore the database system.
 Especially with dozens of users waiting. Never again.
 
 Nevertheless the DBF indexing (CDX complex) worked almost instantly, very fast.
@@ -226,6 +226,11 @@ The other well working solution, especially serving web pages, was a foxpro proc
 in background on server that processed appearing request files in folder, and wrote answers
 to files for php-servers. This is still reliable.
 Anyway there are NoSQL, EasySQL, MySQL, others nowadays. No big reason to revive the dead. 
-And btw. the UniCode characters, avatar pictures, video streaming, foxpro has nothing to do with it all.
+And btw. the UniCode characters, avatar pictures, video streaming, FoxPro is inappropriate for this.
+Prior to FoxPro, there were DBase and Clipper. The DBF part is similar, so can use the same data tools.
+
+The CDX file writing part is possible to develop, but then this won't work on FoxPro anymore for sure.
+Now a large indexed database with multiple indexes can be made on FoxPro
+ and used for seeking - fast data lookup.
 
 */
