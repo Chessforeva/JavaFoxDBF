@@ -13,7 +13,7 @@ public class foxdbf {
 
 	
 	public static void main(String[] args) {
-
+		
 		base db = new base();
 
 		db.create("/SAMPLE1.DBF", "Npk N(10), Name C(20), Rating F(5,2), Birth D, Notes M, ieee B(8,4), Id I, Salary Y");
@@ -89,8 +89,7 @@ public class foxdbf {
 		//  USE C:\I
 		//  SET INDEX TO C:\I.IDX
 		//  BROW
-		
-	
+				
 	};
 }
 

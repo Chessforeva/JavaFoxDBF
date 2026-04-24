@@ -125,11 +125,11 @@ public class cdx {
 	// prepare buffer 300 keys 100char long (increase if need)
 	private void prepArrs()
 	{
-		int key_cnt = 300;
+		int key_Ccnt = 300;
 		int key_Clen = 100;
-		pgC = new byte[key_cnt][key_Clen];
-		pgR = new long[key_cnt];
-		pgP = new long[key_cnt];
+		pgC = new byte[key_Ccnt][key_Clen];
+		pgR = new long[key_Ccnt];
+		pgP = new long[key_Ccnt];
 		
 		kb = new byte[1024<<3];	// reserve 8Kb for decoded data
 	}
@@ -223,7 +223,7 @@ public class cdx {
 
 			int bI = ( 16 - cTC - cDC );
 			int u = key_len+6;
-			int dst = 0, src = L;
+			int dst = 0, src = L;	// 488 — start at TOP of encoded block
 			int d,m,l,j,i,z = 0;
 			
 			bd = new byte[L];
@@ -247,7 +247,7 @@ public class cdx {
 				}
 				if(nwb>0)
 				{
-					src-=nwb;
+					src-=nwb;	// walks downward
 					for(j=0; j<nwb; j++) kb[(dst++)] = bd[src+j];
 				}
 				if(trl>0)
@@ -263,7 +263,8 @@ public class cdx {
 				int k2 = bd[z+2]; if(k2<0) k2+=0x100;
 				int k3 = bd[z+3]; if(k3<0) k3+=0x100;
 				
-				long r = (k3<<24) | (k2<<16) | (k1<<8) | k0;
+				long r = ((long)k3<<24) | ((long)k2<<16) | ((long)k1<<8) | (long)k0;
+				
 				r &= mRN;
 				pgR[i] = r;
 									

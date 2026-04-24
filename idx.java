@@ -184,10 +184,10 @@ public class idx {
 	// prepare buffer 300 keys 100char long (increase if need)
 	private void prepArrs()
 	{
-		int key_cnt = 300;
+		int key_Ccnt = 300;
 		int key_Clen = 100;
-		pgC = new byte[key_cnt][key_Clen];
-		pgR = new long[key_cnt];
+		pgC = new byte[key_Ccnt][key_Clen];
+		pgR = new long[key_Ccnt];
 	}
 	
 	private void readPage()		// reads page information
@@ -510,7 +510,7 @@ public class idx {
 	private void remove_key()
 	{
 		goNode();
-		for(int i=nKey+1; i<=key_cnt; i++)
+		for(int i=nKey+1; i<key_cnt; i++)
 			{
 			pgC[i-1] = pgC[i].clone();
 			pgR[i-1] = pgR[i];	

@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FoxDBF Java — Code Review by Claude AI 24.apr 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=Inconsolata:wght@400;600;700&family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Source+Serif+4:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0e1117;
+    --bg2:       #151921;
+    --bg3:       #1c2330;
+    --border:    #26303f;
+    --border2:   #2e3d52;
+    --amber:     #e8a93a;
+    --amber-dim: #9e7228;
+    --cyan:      #4ec9b0;
+    --red:       #f47067;
+    --green:     #2d6a3f;
+    --green-hi:  #3d8a52;
+    --green-txt: #6dbf82;
+    --todo-bg:   #112a1c;
+    --todo-bdr:  #1e5c30;
+    --todo-txt:  #5dbc78;
+    --code-bg:   #111722;
+    --code-bdr:  #2a3855;
+    --muted:     #5a6a80;
+    --text:      #c8d3e0;
+    --text-dim:  #7a8da0;
+    --heading:   #e8eef5;
+    --tag-bug:   #7b1f1f;
+    --tag-bug-t: #f47067;
+    --tag-warn:  #6b4c10;
+    --tag-warn-t:#e8a93a;
+    --tag-info:  #1a3a5c;
+    --tag-info-t:#4ec9b0;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Source Serif 4', Georgia, serif;
+    font-weight: 300;
+    font-size: 16px;
+    line-height: 1.75;
+    min-height: 100vh;
+  }
+
+  /* ── NOISE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.5;
+  }
+
+  /* ── LAYOUT ── */
+  .page-wrap {
+    position: relative; z-index: 1;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 0 2rem 6rem;
+  }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 1px solid var(--border2);
+    padding: 3.5rem 0 2.5rem;
+    margin-bottom: 3rem;
+    position: relative;
+  }
+
+  header::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; left: 0;
+    width: 120px; height: 2px;
+    background: var(--amber);
+  }
+
+  .header-label {
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--amber-dim);
+    margin-bottom: 0.9rem;
+  }
+
+  h1 {
+    font-family: 'Playfair Display', Georgia, serif;
+    font-size: clamp(2rem, 5vw, 3.1rem);
+    font-weight: 900;
+    color: var(--heading);
+    line-height: 1.1;
+    letter-spacing: -0.02em;
+  }
+
+  h1 span {
+    color: var(--amber);
+  }
+
+  .header-meta {
+    margin-top: 1.2rem;
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .meta-item {
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.8rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .meta-item .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--amber);
+    display: inline-block;
+  }
+
+  /* ── SECTION HEADINGS ── */
+  .section-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.55rem;
+    font-weight: 700;
+    font-style: italic;
+    color: var(--heading);
+    margin: 3.5rem 0 1.5rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+  }
+
+  .section-title .sec-num {
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.85rem;
+    font-style: normal;
+    font-weight: 600;
+    color: var(--amber);
+    background: rgba(232,169,58,0.1);
+    padding: 0.1rem 0.5rem;
+    border-radius: 3px;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── ISSUE CARDS ── */
+  .issue {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--border2);
+    border-radius: 6px;
+    padding: 1.6rem 1.8rem;
+    margin-bottom: 1.5rem;
+    position: relative;
+    transition: border-color 0.2s;
+  }
+
+  .issue:hover {
+    border-color: var(--border2);
+    border-left-color: var(--amber);
+  }
+
+  .issue-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.9rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .issue-num {
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--muted);
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 0.15rem 0.5rem;
+    border-radius: 3px;
+    white-space: nowrap;
+    margin-top: 0.2rem;
+  }
+
+  .issue-title {
+    font-family: 'Source Serif 4', serif;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--heading);
+    line-height: 1.35;
+    flex: 1;
+  }
+
+  .tag {
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.55rem;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+
+  .tag-bug   { background: var(--tag-bug);  color: var(--tag-bug-t); }
+  .tag-warn  { background: var(--tag-warn); color: var(--tag-warn-t);}
+  .tag-info  { background: var(--tag-info); color: var(--tag-info-t);}
+
+  .issue p {
+    margin-bottom: 0.85rem;
+    color: var(--text);
+  }
+
+  .issue p:last-child { margin-bottom: 0; }
+
+  /* ── CODE BLOCKS ── */
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--code-bdr);
+    border-radius: 5px;
+    padding: 1rem 1.2rem;
+    margin: 0.9rem 0;
+    overflow-x: auto;
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: #abb2bf;
+    position: relative;
+  }
+
+  pre .c  { color: var(--muted); font-style: italic; }    /* comment */
+  pre .kw { color: #c678dd; }                              /* keyword */
+  pre .ty { color: #e5c07b; }                              /* type    */
+  pre .fn { color: #61afef; }                              /* function*/
+  pre .st { color: #98c379; }                              /* string  */
+  pre .nm { color: #d19a66; }                              /* number  */
+  pre .op { color: #56b6c2; }                              /* operator*/
+  pre .hi { background: rgba(232,169,58,0.13); border-radius: 2px; } /* highlight */
+  pre .err{ background: rgba(244,112,103,0.15); color: var(--red); }  /* error line */
+  pre .fix{ background: rgba(78,201,176,0.1);  color: var(--cyan); }  /* fix line */
+
+  code {
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.85em;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 0.05em 0.35em;
+    border-radius: 3px;
+    color: var(--cyan);
+  }
+
+  /* ── TODO BOX ── */
+  .todo {
+    background: var(--todo-bg);
+    border: 1px solid var(--todo-bdr);
+    border-left: 3px solid var(--green-hi);
+    border-radius: 4px;
+    padding: 0.85rem 1.1rem;
+    margin-top: 1.1rem;
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+  }
+
+  .todo-label {
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--green-txt);
+    white-space: nowrap;
+    margin-top: 0.1rem;
+    flex-shrink: 0;
+  }
+
+  .todo-content {
+    color: var(--todo-txt);
+    font-size: 0.9rem;
+    font-style: italic;
+    line-height: 1.6;
+  }
+
+  /* ── CALLOUT / NOTE ── */
+  .callout {
+    background: rgba(78,201,176,0.06);
+    border: 1px solid rgba(78,201,176,0.2);
+    border-radius: 5px;
+    padding: 1rem 1.2rem;
+    margin: 1rem 0;
+    font-size: 0.92rem;
+    color: var(--text-dim);
+  }
+
+  .callout strong { color: var(--cyan); }
+
+  /* ── TOC ── */
+  .toc {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 1.4rem 1.8rem;
+    margin-bottom: 3rem;
+  }
+
+  .toc-title {
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--amber-dim);
+    margin-bottom: 1rem;
+  }
+
+  .toc ol {
+    list-style: none;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.25rem 2rem;
+  }
+
+  .toc li a {
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.83rem;
+    color: var(--text-dim);
+    text-decoration: none;
+    display: flex;
+    gap: 0.5rem;
+    align-items: baseline;
+    transition: color 0.15s;
+  }
+
+  .toc li a:hover { color: var(--amber); }
+
+  .toc li a .toc-id {
+    color: var(--amber-dim);
+    flex-shrink: 0;
+  }
+
+  /* ── DIVIDER ── */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 2rem 0;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding-top: 2rem;
+    margin-top: 4rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  footer p {
+    font-family: 'Inconsolata', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+
+  footer .amber { color: var(--amber); }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--amber-dim); }
+
+  /* ── ANIMATIONS ── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  header, .toc { animation: fadeUp 0.6s ease both; }
+  .issue:nth-child(1) { animation: fadeUp 0.6s 0.05s ease both; }
+  .issue:nth-child(2) { animation: fadeUp 0.6s 0.10s ease both; }
+  .issue:nth-child(3) { animation: fadeUp 0.6s 0.15s ease both; }
+
+  @media (max-width: 640px) {
+    .toc ol { grid-template-columns: 1fr; }
+    .page-wrap { padding: 0 1rem 4rem; }
+  }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+<!-- ═══════════════════════════════════ HEADER ═══ -->
+<header>
+  <div class="header-label">Static Code Review &bull; Java Source</div>
+  <h1>FoxDBF <span>Java</span> — Code Review by Claude AI 24.apr 2026</h1>
+  <div class="header-meta">
+    <span class="meta-item"><span class="dot"></span>Target: Visual FoxPro / VFP DBF, CDX, IDX, FPT</span>
+    <span class="meta-item"><span class="dot"></span>Files: cdx.java · idx.java · base.java · field.java · datestr.java</span>
+    <span class="meta-item"><span class="dot"></span>Scope: CDX indexing · IDX indexing · base DBF handling · READ_ONLY</span>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════ PREAMBLE ═══ -->
+<div class="callout">
+  <strong>Visual FoxPro context note:</strong> All analysis below is written with VFP constraints in mind. CDX keys are capped at <strong>100 characters</strong>, pages are 512 bytes with 488 bytes of usable data, and all CDX/IDX/FPT files are produced by FoxPro itself — no exotic third-party encodings. Several theoretical edge-case risks below are therefore of low practical severity, but are noted for completeness and long-term maintainability.
+</div>
+
+<!-- ═══════════════════════════════════ TOC ═══ -->
+<div class="toc">
+  <div class="toc-title">Contents</div>
+  <ol>
+    <li><a href="#s1"><span class="toc-id">§ CDX-1</span> Integer overflow in record number</a></li>
+    <li><a href="#s2"><span class="toc-id">§ CDX-2</span> <code>kb</code> decode buffer sizing</a></li>
+    <li><a href="#s3"><span class="toc-id">§ CDX-3</span> <code>pgC</code> / <code>pgR</code> fixed-size buffers</a></li>
+    <li><a href="#s4"><span class="toc-id">§ CDX-4</span> <code>nKey = -1</code> guard produces stale key</a></li>
+    <li><a href="#s5"><span class="toc-id">§ CDX-5</span> <code>src</code> decodes backwards — undocumented</a></li>
+    <li><a href="#s6"><span class="toc-id">§ CDX-6</span> <code>bI</code> / <code>cRN</code> packing — unused variable</a></li>
+    <li><a href="#s7"><span class="toc-id">§ CDX-7</span> First-key dup reset missing comment</a></li>
+    <li><a href="#s8"><span class="toc-id">§ IDX-1</span> IDX write mode is unguarded</a></li>
+    <li><a href="#s9"><span class="toc-id">§ IDX-2</span> <code>append_key()</code> split — inconsistent <code>fileend</code></a></li>
+    <li><a href="#s10"><span class="toc-id">§ IDX-3</span> <code>remove_key()</code> out-of-bounds clone</a></li>
+    <li><a href="#s11"><span class="toc-id">§ IDX-4</span> <code>cSKey.equals()</code> on byte arrays</a></li>
+    <li><a href="#s12"><span class="toc-id">§ IDX-5</span> <code>prepareSeekDateTime</code> magic offset</a></li>
+    <li><a href="#s13"><span class="toc-id">§ BASE-1</span> READ_ONLY file mode mismatch</a></li>
+    <li><a href="#s14"><span class="toc-id">§ BASE-2</span> <code>isReadOnly()</code> mutates state as side effect</a></li>
+    <li><a href="#s15"><span class="toc-id">§ BASE-3</span> Swallowed exceptions everywhere</a></li>
+    <li><a href="#s16"><span class="toc-id">§ BASE-4</span> <code>fdbf</code> null check in <code>used()</code></a></li>
+  </ol>
+</div>
+
+
+<!-- ═══════════════════════════════════ CDX SECTION ═══ -->
+<h2 class="section-title"><span class="sec-num">CDX</span> CDX Index Parsing &amp; Navigation</h2>
+
+
+<!-- CDX-1 -->
+<div class="issue" id="s1">
+  <div class="issue-header">
+    <span class="issue-num">CDX-1</span>
+    <span class="issue-title">Integer overflow in leaf-page record number reconstruction</span>
+    <span class="tag tag-bug">Real Bug</span>
+  </div>
+  <p>In <code>cdx.java → readPage()</code>, the LEAF branch assembles a 4-byte record number from individual <code>int</code> variables and then shifts:</p>
+<pre><span class="err">int k3 = bd[z+3]; if(k3&lt;0) k3+=0x100;
+long r = (k3&lt;&lt;24) | (k2&lt;&lt;16) | (k1&lt;&lt;8) | k0;   <span class="c">// ← overflow here</span></span></pre>
+  <p>When <code>k3 &ge; 0x80</code> (i.e., record number &ge; 2,147,483 per byte layout), <code>k3&lt;&lt;24</code> produces a negative <code>int</code> because the shift happens in <code>int</code> arithmetic <em>before</em> assignment to <code>long r</code>. Java then sign-extends the negative int to 64 bits, corrupting the high word.</p>
+  <p><strong>Correct fix — cast to long before shifting:</strong></p>
+<pre><span class="fix">long r = ((long)k3&lt;&lt;24) | ((long)k2&lt;&lt;16) | ((long)k1&lt;&lt;8) | (long)k0;</span></pre>
+  <p>In practice VFP databases rarely reach 8M+ records, so this is a latent but real bug. The same pattern appears correctly elsewhere using <code>readNumber()</code> — this one spot uses the manual 4-byte construction instead.</p>
+  <div class="todo">
+    <span class="todo-label">Notes on ToDo:</span>
+    <span class="todo-content">Fixed</span>
+  </div>
+</div>
+
+
+<!-- CDX-2 -->
+<div class="issue" id="s2">
+  <div class="issue-header">
+    <span class="issue-num">CDX-2</span>
+    <span class="issue-title"><code>kb</code> decode buffer may be undersized for large page fills</span>
+    <span class="tag tag-warn">Low Risk (VFP)</span>
+  </div>
+  <p>In <code>cdx.java → prepArrs()</code>:</p>
+<pre><span class="hi">kb = new byte[1024&lt;&lt;3];   <span class="c">// 8 192 bytes</span></span></pre>
+  <p>Each key entry written into <code>kb</code> consumes <code>key_len + 6</code> bytes (key + 4 recno + 1 dup + 1 trail). With the buffer set for 300 keys at length 100, the decoded output could reach 300 × 106 = <strong>31 800 bytes</strong> — well over 8 192. In actual VFP a 512-byte page with 488 bytes of data limits real key counts far below that, but the relationship between <code>prepArrs()</code>'s magic numbers is invisible — a future maintainer enlarging the buffer count could silently cause <code>ArrayIndexOutOfBoundsException</code> at decode time.</p>
+  <p>Add a comment linking these constants, or size <code>kb</code> as <code>key_cnt * (key_Clen + 6)</code>.</p>
+  <div class="todo">
+    <span class="todo-label">Notes on ToDo:</span>
+    <span class="todo-content">Nope. 8Kb for a leaf should be enough. Or something is "too much".<br> Reindex the database in FoxPro more often and avoid too long index keys. Then no leaf overflow will happen.
+    </span>
+  </div>
+</div>
+
+
+<!-- CDX-3 -->
+<div class="issue" id="s3">
+  <div class="issue-header">
+    <span class="issue-num">CDX-3</span>
+    <span class="issue-title"><code>pgC</code> second dimension fixed at 100 — shadows field name</span>
+    <span class="tag tag-warn">Minor Risk</span>
+  </div>
+  <p>In <code>prepArrs()</code> in both <code>cdx.java</code> and <code>idx.java</code>:</p>
+<pre><span class="kw">int</span> key_cnt = <span class="nm">300</span>;       <span class="c">// local — shadows this.key_cnt!</span>
+<span class="kw">int</span> key_Clen = <span class="nm">100</span>;
+pgC = <span class="kw">new</span> <span class="ty">byte</span>[key_cnt][key_Clen];</pre>
+  <p>The local variable <code>key_cnt</code> silently shadows the instance field <code>this.key_cnt</code>. Any compiler warning about shadowed fields would fire here. More importantly, <code>key_Clen = 100</code> matches VFP's key length ceiling, so this is safe for the stated use case, but the magic number should be a named constant or derived from the header's <code>key_len</code> field to make the intent explicit.</p>
+  <div class="todo">
+    <span class="todo-label">Notes on ToDo:</span>
+    <span class="todo-content">Changed variable name.
+    This is allocation of space, not actual key_cnt (or key length) of a current page.</span>
+  </div>
+</div>
+
+
+<!-- CDX-4 -->
+<div class="issue" id="s4">
+  <div class="issue-header">
+    <span class="issue-num">CDX-4</span>
+    <span class="issue-title"><code>nKey = -1</code> guard assigns <code>nFoundKey</code> from possibly uninitialised slot</span>
+    <span class="tag tag-warn">Minor Risk</span>
+  </div>
+  <p>At the end of <code>seek()</code> in both <code>cdx.java</code> and <code>idx.java</code>:</p>
+<pre><span class="hi">if(nKey&lt;0) nKey = 0;
+nFoundKey = pgC[nKey];   <span class="c">// pgC[0] may be zero-filled if no page was read</span></span></pre>
+  <p>If all visited pages had <code>key_cnt == 0</code> (an empty index), <code>nKey</code> stays at its loop value and is clamped to 0. Then <code>nFoundKey</code> is set to <code>pgC[0]</code>, which was zero-initialised in <code>prepArrs()</code> and has never been written. The array exception is avoided, but <code>nFoundKey</code> contains garbage, and calling code that inspects it on a failed seek may misbehave. A guard like <code>nFoundKey = (key_cnt &gt; 0 ? pgC[nKey] : null)</code> would be cleaner.</p>
+  <div class="todo">
+    <span class="todo-label">Notes on ToDo:</span>
+    <span class="todo-content">Nope. All searched values anyway should be checked. The FoxPro index is like a tool to help finding, not exact guaranteed unique key table.
+	Null is "what exactly"? So what. If no keys then it can be the 0-th too.
+	</span>
+  </div>
+</div>
+
+
+<!-- CDX-5 -->
+<div class="issue" id="s5">
+  <div class="issue-header">
+    <span class="issue-num">CDX-5</span>
+    <span class="issue-title">Reverse <code>src</code> decoding — correct but entirely undocumented</span>
+    <span class="tag tag-info">Maintainability</span>
+  </div>
+  <p>In the LEAF page decode loop:</p>
+<pre><span class="kw">int</span> src = L;   <span class="c">// 488 — start at TOP of encoded block</span>
+<span class="c">// ...</span>
+src -= nwb;                                    <span class="c">// walks downward</span>
+<span class="kw">for</span>(j=<span class="nm">0</span>; j&lt;nwb; j++) kb[(dst++)] = bd[src+j];</pre>
+  <p>This is correct per the CDX spec: pack-info bytes fill from the <em>bottom</em> of the 488-byte block upward, and the key bytes fill from the <em>top</em> downward. Without a comment explaining this, any maintainer seeing <code>src = L</code> followed by <code>src -= nwb</code> will spend considerable time verifying it isn't a bug. The entire decode algorithm deserves a two-line comment referencing the spec direction.</p>
+  <div class="todo">
+    <span class="todo-label">Notes on ToDo:</span>
+    <span class="todo-content">If You like it.</span>
+  </div>
+</div>
+
+
+<!-- CDX-6 -->
+<div class="issue" id="s6">
+  <div class="issue-header">
+    <span class="issue-num">CDX-6</span>
+    <span class="issue-title"><code>cRN</code> is read from the header but never used in bit extraction</span>
+    <span class="tag tag-info">Maintainability</span>
+  </div>
+  <p><code>cRN</code> (number of bits for the record number) is read correctly in <code>readPage()</code>:</p>
+<pre>cRN = read1byte();</pre>
+  <p>But bit extraction uses the derived value <code>bI = 16 - cTC - cDC</code> rather than <code>cRN</code> directly:</p>
+<pre><span class="hi">int bI = ( 16 - cTC - cDC );   <span class="c">// implicitly assumes cRN == bI</span></span>
+<span class="c">// cRN never referenced again → ends up in dead `notUsedVars` expression</span></pre>
+  <p>For all VFP-generated CDX files <code>cRN == bI</code> holds, but since <code>cRN</code> is actually available, using it directly (<code>int bI = cRN</code>) would make the assumption explicit and add a natural consistency check. The <code>notUsedVars</code> suppression hack exists precisely to silence this; using <code>cRN</code> meaningfully would remove the need for it.</p>
+  <div class="todo">
+    <span class="todo-label">Notes on ToDo:</span>
+    <span class="todo-content">cRN is important for FoxPro to identify corrupted index. Here is not used in java.</span>
+  </div>
+</div>
+
+
+<!-- CDX-7 -->
+<div class="issue" id="s7">
+  <div class="issue-header">
+    <span class="issue-num">CDX-7</span>
+    <span class="issue-title">First-key duplicate count zeroed — correct but looks like a guard</span>
+    <span class="tag tag-info">Clarity</span>
+  </div>
+<pre><span class="kw">int</span> dup = (i == <span class="nm">0</span>) ? <span class="nm">0</span> : ( Q &amp; mDC );  <span class="c">// ← why always 0 for i==0?</span></pre>
+  <p>The CDX format requires that the very first key on every leaf page carries <em>no</em> duplicate prefix — it is always stored in full. This ternary is therefore semantically correct, not a defensive guard. Without a comment it looks like a protective workaround for an uninitialized <code>Q</code> value, which confuses readers who know the loop is entered fresh. A one-line comment — <em>"// first key is always complete, dup count is meaningless"</em> — removes all ambiguity.</p>
+  <div class="todo">
+    <span class="todo-label">Notes on ToDo:</span>
+    <span class="todo-content">Ignored</span>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════ IDX SECTION ═══ -->
+<h2 class="section-title"><span class="sec-num">IDX</span> IDX Index — Write Path Bugs &amp; Risks</h2>
+
+<div class="callout">
+  <strong>Important note on IDX writing:</strong> The readme itself warns against writing IDX files. The review below documents real bugs in the write path (<code>append_key</code>, <code>remove_key</code>). The read path is substantially safer — bugs there are edge-case or cosmetic.
+</div>
+
+
+<!-- IDX-1 -->
+<div class="issue" id="s8">
+  <div class="issue-header">
+    <span class="issue-num">IDX-1</span>
+    <span class="issue-title"><code>idx</code> write methods have no READ_ONLY guard at all</span>
+    <span class="tag tag-bug">Real Bug</span>
+  </div>
+  <p><code>writePage()</code>, <code>writeNumber()</code>, and <code>writeHeaderToEmptyFile()</code> in <code>idx.java</code> write directly to <code>fidx</code> with zero checks. The only protection is that <code>base.isReadOnly()</code> prevents <code>update_key()</code> from being reached — but this is fragile. Consider:</p>
+  <ol style="margin: 0.5rem 0 0.5rem 1.5rem; color: var(--text);">
+    <li>User calls <code>set_order_to_idx()</code> while <code>READ_ONLY = false</code> → <code>fidx</code> opens as <code>"rw"</code>.</li>
+    <li>User later sets <code>READ_ONLY = true</code>.</li>
+    <li>A code path that bypasses <code>base</code> and calls <code>Idx.replace_key()</code> directly will still write to disk.</li>
+  </ol>
+  <p><strong>Fix:</strong> Mirror a <code>boolean readOnly</code> field into <code>idx</code> at open time, and guard <code>writePage()</code>:</p>
+<pre><span class="fix">if(readOnly) return;   <span class="c">// at top of writePage(), writeHeaderToEmptyFile()</span></span></pre>
+  <div class="todo">
+    <span class="todo-label">Notes on ToDo:</span>
+    <span class="todo-content">User is able to reset READ_ONLY all the time.<br>
+    It is possible, but READ_ONLY is also internal flag. It can't be 100% fool safe.<br>
+    Normally user sets it once at the beginning and does not change it till the table is closed.
+    </span>
+  </div>
+</div>
+
+
+<!-- IDX-2 -->
+<div class="issue" id="s9">
+  <div class="issue-header">
+    <span class="issue-num">IDX-2</span>
+    <span class="issue-title"><code>append_key()</code> page-split leaves <code>fileend</code> inconsistent between the two branches</span>
+    <span class="tag tag-bug">Real Bug (write path)</span>
+  </div>
+  <p>The two <code>INDEX_PAGES_INSIDE_IDX</code> branches advance <code>fileend</code> differently:</p>
+<pre><span class="c">// Branch TRUE (index pages):</span>
+<span class="err">fileend += 1024;   <span class="c">// adds 2 × 512 pages</span>
+fidx.seek(8); writeNumber(0,4,fileend,true);</span>
+
+<span class="c">// Branch FALSE (flat list):</span>
+<span class="err">fileend += 512;    <span class="c">// adds only 1 page</span>
+fidx.seek(8); writeNumber(0,4,fileend,true);</span></pre>
+  <p>In the <code>TRUE</code> branch, two new pages are written at <code>nwR = fileend</code> and <code>nwL = fileend + 512</code>, and then <code>fileend += 1024</code> is correct. However, the seek-and-write for <code>fileend</code> happens <em>before</em> the new pages are written, meaning a crash mid-write leaves the header pointing beyond any written data. The <code>FALSE</code> branch has the reverse problem — it writes one page but the header update is at the end, which is safer ordering but still increments by only 512 even though left-pointer adjustment has already modified a second page. Reordering: write all pages first, then update the header once, is the safe pattern for both branches.</p>
+  <div class="todo">
+    <span class="todo-label">Notes on ToDo:</span>
+    <span class="todo-content">
+    This is backwards compatibility workaround. FoxPro does it, java doesn't...<br>
+    Again, use FoxPro databases in read only mode and it will work fast and nice.
+    </span>
+  </div>
+</div>
+
+
+<!-- IDX-3 -->
+<div class="issue" id="s10">
+  <div class="issue-header">
+    <span class="issue-num">IDX-3</span>
+    <span class="issue-title"><code>remove_key()</code> reads one past array end during shift</span>
+    <span class="tag tag-bug">Real Bug (write path)</span>
+  </div>
+  <p>The removal shift loop:</p>
+<pre><span class="err">for(int i=nKey+1; i&lt;=key_cnt; i++)   <span class="c">// i reaches key_cnt</span>
+{
+    pgC[i-1] = pgC[i].clone();        <span class="c">// pgC[key_cnt] is out-of-bounds!</span>
+    pgR[i-1] = pgR[i];
+}</span></pre>
+  <p>The condition is <code>i &lt;= key_cnt</code>, but valid indices are <code>0 … key_cnt-1</code>. On the last iteration, <code>pgC[key_cnt]</code> is accessed, which for <code>pgC = new byte[300][100]</code> is within the Java array (no exception), but reads stale data from a previous page load into the last valid slot. The correct bound is <code>i &lt; key_cnt</code>:</p>
+<pre><span class="fix">for(int i = nKey+1; i &lt; key_cnt; i++) { ... }</span></pre>
+  <div class="todo">
+    <span class="todo-label">Notes on ToDo:</span>
+    <span class="todo-content">Fixed</span>
+  </div>
+</div>
+
+
+<!-- IDX-4 -->
+<div class="issue" id="s11">
+  <div class="issue-header">
+    <span class="issue-num">IDX-4</span>
+    <span class="issue-title"><code>cSKey.equals(searchKey)</code> compares byte array references, not contents</span>
+    <span class="tag tag-bug">Real Bug</span>
+  </div>
+  <p>In <code>base.java → update_key()</code>:</p>
+<pre><span class="err">if(cSKey==null || (!cSKey.equals(Idx.searchKey)))
+    Idx.replace_key();   <span class="c">// always called — equals() on byte[] is identity, not content</span></span></pre>
+  <p><code>byte[].equals()</code> in Java is inherited from <code>Object</code> and performs <em>reference equality</em>, not content comparison. Two different arrays with identical bytes are not <code>.equals()</code>. This means <code>replace_key()</code> is called on every <code>update_key()</code> call regardless of whether the key actually changed, defeating the optimisation entirely and risking unnecessary index corruption on the write path.</p>
+  <p><strong>Fix:</strong></p>
+<pre><span class="fix">if(cSKey==null || (!java.util.Arrays.equals(cSKey, Idx.searchKey)))
+    Idx.replace_key();</span></pre>
+  <div class="todo">
+    <span class="todo-label">Notes on ToDo:</span>
+    <span class="todo-content">Fixed</span>
+  </div>
+</div>
+
+
+<!-- IDX-5 -->
+<div class="issue" id="s12">
+  <div class="issue-header">
+    <span class="issue-num">IDX-5</span>
+    <span class="issue-title"><code>prepareSeekDateTime</code> applies a magic <code>-2</code> offset to the first key byte</span>
+    <span class="tag tag-warn">Fragile / Undocumented</span>
+  </div>
+  <p>In <code>idx.java</code>:</p>
+<pre><span class="kw">public void</span> <span class="fn">prepareSeekDateTime</span>( <span class="ty">long</span> d )
+{
+    prepareSeekByLong( d );
+    <span class="hi">if(d!=0) searchKey[0]-=2;   <span class="c">// "strange but working way"</span></span>
+}</pre>
+  <p>The comment <em>"strange but working way"</em> is honest but dangerous. The T-type (DateTime) key encoding in VFP stores the date as a Julian day number in the high 32 bits and time in milliseconds in the low 32 bits of a double — but the float-to-index-key transform then XORs the sign bit, which shifts the whole byte representation. The <code>-2</code> likely compensates for the millisecond time component always being non-zero in practice (VFP stores DateTime with at least +1ms). This works only if time is always &ge; 2ms. Document the derivation, or convert DateTime to its two-component form explicitly instead of patching the byte.</p>
+  <div class="todo">
+    <span class="todo-label">Notes on ToDo:</span>
+    <span class="todo-content">:))) Relax</span>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════ BASE SECTION ═══ -->
+<h2 class="section-title"><span class="sec-num">BASE</span> base.java — DBF Handling</h2>
+
+
+<!-- BASE-1 -->
+<div class="issue" id="s13">
+  <div class="issue-header">
+    <span class="issue-num">BASE-1</span>
+    <span class="issue-title">READ_ONLY flag does not control physical file-open mode</span>
+    <span class="tag tag-bug">Real Bug</span>
+  </div>
+  <p>This is the most structurally important issue in <code>base.java</code>. The file mode helper:</p>
+<pre><span class="kw">private</span> String <span class="fn">fmode</span>() { <span class="kw">return</span> <span class="st">"r"</span> + (READ_ONLY ? <span class="st">""</span> : <span class="st">"w"</span>); }</pre>
+  <p>…is used at open time. However, <code>cdx_file</code> (which forces <code>READ_ONLY = true</code> inside <code>isReadOnly()</code>) is discovered <em>after</em> the file is already opened. The sequence is:</p>
+  <ol style="margin: 0.5rem 0 0.5rem 1.5rem; color: var(--text);">
+    <li><code>use()</code> calls <code>fdbf = new RandomAccessFile(dbfname, fmode())</code> → opens <code>"rw"</code></li>
+    <li><code>getdatabeginptr()</code> reads byte 28 → sets <code>cdx_file = true</code></li>
+    <li>From now on <code>isReadOnly()</code> returns <code>true</code> and all writes are logically blocked…</li>
+    <li>…but <code>fdbf</code> is still physically open for writing at the OS level.</li>
+  </ol>
+  <p><strong>Recommended fix:</strong> Peek at byte 28 before the main open, then choose the correct mode:</p>
+<pre><span class="fix"><span class="c">// Step 1 — probe CDX flag</span>
+<span class="kw">try</span> (RandomAccessFile probe = <span class="kw">new</span> <span class="ty">RandomAccessFile</span>(<span class="kw">new</span> <span class="ty">File</span>(dbfname), <span class="st">"r"</span>)) {
+    probe.seek(<span class="nm">28</span>);
+    <span class="kw">if</span>(probe.readUnsignedByte() > <span class="nm">0</span>) READ_ONLY = <span class="kw">true</span>;
+}
+<span class="c">// Step 2 — open with correct mode</span>
+fdbf = <span class="kw">new</span> <span class="ty">RandomAccessFile</span>(<span class="kw">new</span> <span class="ty">File</span>(dbfname), fmode());</span></pre>
+  <div class="todo">
+    <span class="todo-label">Notes on ToDo:</span>
+    <span class="todo-content">Actually user should understand what he does.<br>
+    Just set READ_ONLY before opening database and reset after close.</span>
+  </div>
+</div>
+
+
+<!-- BASE-2 -->
+<div class="issue" id="s14">
+  <div class="issue-header">
+    <span class="issue-num">BASE-2</span>
+    <span class="issue-title"><code>isReadOnly()</code> mutates <code>READ_ONLY</code> as a side effect</span>
+    <span class="tag tag-warn">Design Issue</span>
+  </div>
+  <p><code>isReadOnly()</code> looks like a pure predicate but secretly <em>sets</em> a public field:</p>
+<pre><span class="kw">private boolean</span> <span class="fn">isReadOnly</span>()
+{
+    <span class="hi">if(cdx_file) READ_ONLY = <span class="kw">true</span>;   <span class="c">// ← side effect inside a getter!</span></span>
+    if(READ_ONLY) { <span class="kw">throw</span>...; }
+    <span class="kw">return</span> READ_ONLY;
+}</pre>
+  <p>A method named <code>isX()</code> should be a pure query. The mutation of <code>READ_ONLY</code> belongs in the open logic (see BASE-1), not here. This also means every write-guarded method call has the potential to permanently switch the database to read-only mode mid-session in an unexpected way. Separate the two concerns: set <code>READ_ONLY</code> once at open time, and let <code>isReadOnly()</code> just test it.</p>
+  <div class="todo">
+    <span class="todo-label">Notes on ToDo:</span>
+    <span class="todo-content">Same.</span>
+  </div>
+</div>
+
+
+<!-- BASE-3 -->
+<div class="issue" id="s15">
+  <div class="issue-header">
+    <span class="issue-num">BASE-3</span>
+    <span class="issue-title">All I/O errors are swallowed via <code>e.printStackTrace()</code> and execution continues</span>
+    <span class="tag tag-warn">Design Issue</span>
+  </div>
+  <p>Virtually every <code>try/catch</code> block in the codebase looks like:</p>
+<pre><span class="err"><span class="kw">try</span> { fidx.seek(nNode); }
+<span class="kw">catch</span> (IOException e) { e.printStackTrace(); }   <span class="c">// ← and then execution continues!</span></span></pre>
+  <p>After a failed <code>seek()</code>, the following <code>readPage()</code> will read from whatever position the file pointer happens to be in. This silently corrupts the in-memory page buffers. For a read-only database viewer this is survivable — you get a wrong result. For a write path (<code>writePage()</code>, <code>writeNumber()</code>), execution continues and you write to the wrong offset, corrupting the index file. At minimum, critical path I/O (seek, read, write) should set a flag that prevents subsequent operations, or rethrow as an unchecked exception. A simple <code>boolean ioError</code> field checked at the start of each page operation would contain the damage.</p>
+  <div class="todo">
+    <span class="todo-label">Notes on ToDo:</span>
+    <span class="todo-content">The aim is to seek and analyse data, not jump somewhere on error catches.</span>
+  </div>
+</div>
+
+
+<!-- BASE-4 -->
+<div class="issue" id="s16">
+  <div class="issue-header">
+    <span class="issue-num">BASE-4</span>
+    <span class="issue-title"><code>used()</code> only checks <code>fdbf != null</code> — no check after forced close</span>
+    <span class="tag tag-info">Minor</span>
+  </div>
+  <p><code>used()</code> is defined as:</p>
+<pre><span class="kw">public boolean</span> <span class="fn">used</span>() { <span class="kw">return</span> (fdbf != <span class="kw">null</span>); }</pre>
+  <p>After <code>use()</code> (close) is called, <code>fdbf</code> is closed but may or may not be set to <code>null</code> depending on the close code path. If an <code>IOException</code> occurs during close, the field might not be nulled, making <code>used()</code> return <code>true</code> for a closed file. The recommended pattern is to always assign <code>fdbf = null</code> in a <code>finally</code> block after close, regardless of exceptions.</p>
+  <p>Also: <code>setfnames()</code> calls <code>use()</code> at its start (<em>"close previous files"</em>), which is a side-effect of what looks like a name-setting utility. This is non-obvious and can close an open database unexpectedly if <code>setfnames()</code> is called on a used instance.</p>
+  <div class="todo">
+    <span class="todo-label">Notes on ToDo:</span>
+    <span class="todo-content">Fixed</span>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════ FOOTER ═══ -->
+<footer>
+  <p>FoxDBF Java &mdash; Code Review &bull; <span class="amber">CDX · IDX · BASE</span></p>
+  <p>Visual FoxPro / VFP target &bull; 100-char key ceiling &bull; Native FoxPro-generated files only</p>
+</footer>
+
+</div><!-- /page-wrap -->
+</body>
+</html>

@@ -344,6 +344,7 @@ public class base {
 		else if(cdx_file) Cdx.recno = recno;
 		reccount = 0;
 		geteof(); getbof();
+		fdbf = null;
 	}
 	
 	public void create( String filename, String struct )
@@ -1004,7 +1005,7 @@ public class base {
 		if(Idx!=null)
 			{
 			PREPARE_KEY_FROM_DATA( Idx );
-			if(cSKey==null || (!cSKey.equals(Idx.searchKey)))
+			if(cSKey==null || (!java.util.Arrays.equals(cSKey, Idx.searchKey)))
 				Idx.replace_key();	// this is a hack too much
 			}
 		if(cdx_file)

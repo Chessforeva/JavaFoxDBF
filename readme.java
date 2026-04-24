@@ -234,3 +234,18 @@ Now a large indexed database with multiple indexes can be made on FoxPro
  and used for seeking - fast data lookup.
 
 */
+
+/*
+
+CLAUDE AI REVIEW 24.apr.2026
+
+Some bugs were fixed. The CDX index key above 8 million records could not be found properly.
+Other bugs are minor.
+
+The .READ_ONLY parameter should be tied to file access mode nowadays.
+Please use java for FoxPro DBFs in .READ_ONLY mode.
+Just set .READ_ONLY=true before use(<name>) and reset to false after use().
+
+The task was to review for possible mistakes. Not to upgrade something.
+
+*/
